@@ -1,0 +1,20 @@
+name: iOS build (Capacitor)
+
+# Thin wrapper around the Plug and Play reusable workflow.
+# Run manually from the Actions tab when you want a fresh native shell;
+# ordinary product changes ship via Vercel (remote mode) with no rebuild.
+on:
+  workflow_dispatch:
+    inputs:
+      remote_url:
+        description: "Deployed app URL the shell should load"
+        required: false
+        default: "https://spindle.vercel.app"
+
+jobs:
+  build:
+    uses: davidcblake/plug-and-play/.github/workflows/build-ios-app.yml@main
+    with:
+      app_name: Spindle
+      bundle_id: com.wpv.spindle
+      remote_url: ${{ inputs.remote_url || 'https://spindle.vercel.app' }}
