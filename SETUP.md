@@ -30,8 +30,8 @@ Supabase's built-in email provider works out of the box for magic links (rate-li
 ### 1c. Auth URLs
 
 Supabase → **Authentication → URL Configuration**:
-- **Site URL:** `https://spindle.vercel.app` (or your final domain)
-- **Redirect URLs:** add both `https://spindle.vercel.app/**` and `http://localhost:3000/**`
+- **Site URL:** `https://spindle-ten.vercel.app` (or your final domain)
+- **Redirect URLs:** add both `https://spindle-ten.vercel.app/**` and `http://localhost:3000/**`
 
 ---
 
