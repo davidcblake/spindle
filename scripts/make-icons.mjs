@@ -140,3 +140,7 @@ writeFileSync(join(root, "public/icons/icon-512.png"), render(512));
 writeFileSync(join(root, "public/icons/apple-touch-icon.png"), render(180, { maskable: true }));
 writeFileSync(join(root, "public/icons/maskable-512.png"), render(512, { maskable: true }));
 console.log("icons written to public/icons/");
+
+// iOS asset catalog icon (full-bleed 1024 — iOS rounds the corners itself)
+writeFileSync(join(root, "public/icons/ios-1024.png"), render(1024, { maskable: true }));
+console.log("ios-1024 written");
