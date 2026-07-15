@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+// Google sign-in stays hidden until the OAuth provider is configured in
+// Supabase; flip NEXT_PUBLIC_AUTH_GOOGLE=1 in Vercel to show the button.
+const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_AUTH_GOOGLE === "1";
+
 export default function SignIn() {
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
@@ -51,17 +55,21 @@ export default function SignIn() {
           and build a journal that follows you to every device.
         </p>
 
-        <button className="sp-signin-btn primary" onClick={signInWithGoogle}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"
-            />
-          </svg>
-          Continue with Google
-        </button>
+        {GOOGLE_ENABLED && (
+          <>
+            <button className="sp-signin-btn primary" onClick={signInWithGoogle}>
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"
+                />
+              </svg>
+              Continue with Google
+            </button>
 
-        <p className="sp-signin-or">or use email</p>
+            <p className="sp-signin-or">or use email</p>
+          </>
+        )}
 
         {sent ? (
           <p className="sp-success" role="status">
@@ -94,7 +102,10 @@ export default function SignIn() {
         {error && <p className="sp-error">{error}</p>}
 
         <p className="sp-signin-note">
-          No password to remember — sign in with Google or a link sent to your email.
+          No password to remember —{" "}
+          {GOOGLE_ENABLED
+            ? "sign in with Google or a link sent to your email."
+            : "we send a sign-in link straight to your email."}
         </p>
       </div>
 
