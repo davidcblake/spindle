@@ -10,6 +10,7 @@ const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_AUTH_GOOGLE === "1";
 export default function SignIn() {
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,10 +34,29 @@ export default function SignIn() {
     });
     setBusy(false);
     if (authError) {
-      setError("Couldn't send the link — check the address and try again.");
+      setError("Couldn't send the code — check the address and try again.");
     } else {
       setSent(true);
     }
+  }
+
+  /** Verifying the emailed 6-digit code keeps sign-in entirely inside this
+   *  window — essential in the native shell, where tapping the email link
+   *  would open Safari instead of the app. */
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    const { error: authError } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: "email",
+    });
+    setBusy(false);
+    if (authError) {
+      setError("That code didn't match — check the newest email and try again.");
+    }
+    // On success, onAuthStateChange in SpindleApp takes over.
   }
 
   return (
@@ -72,10 +92,48 @@ export default function SignIn() {
         )}
 
         {sent ? (
-          <p className="sp-success" role="status">
-            Check your email — tap the link we sent to <strong>{email}</strong> and you&apos;ll be
-            signed in. You can close this tab.
-          </p>
+          <form onSubmit={verifyCode}>
+            <p className="sp-success" role="status">
+              We emailed a 6-digit code to <strong>{email}</strong>.
+            </p>
+            <div className="sp-field">
+              <label className="sp-field-label" htmlFor="otp-code">
+                Enter the code
+              </label>
+              <input
+                id="otp-code"
+                className="sp-input"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                required
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                style={{ textAlign: "center", fontSize: 22, letterSpacing: "0.3em" }}
+              />
+            </div>
+            <button
+              className="sp-signin-btn primary"
+              type="submit"
+              disabled={busy || code.trim().length < 6}
+            >
+              {busy ? "Signing in…" : "Sign in"}
+            </button>
+            <button
+              type="button"
+              className="sp-link-btn"
+              onClick={() => {
+                setSent(false);
+                setCode("");
+                setError("");
+              }}
+            >
+              Use a different email
+            </button>
+          </form>
         ) : (
           <form onSubmit={sendMagicLink}>
             <div className="sp-field">
@@ -94,7 +152,7 @@ export default function SignIn() {
               />
             </div>
             <button className="sp-signin-btn" type="submit" disabled={busy || !email.trim()}>
-              {busy ? "Sending…" : "Email me a sign-in link"}
+              {busy ? "Sending…" : "Email me a sign-in code"}
             </button>
           </form>
         )}
@@ -104,8 +162,8 @@ export default function SignIn() {
         <p className="sp-signin-note">
           No password to remember —{" "}
           {GOOGLE_ENABLED
-            ? "sign in with Google or a link sent to your email."
-            : "we send a sign-in link straight to your email."}
+            ? "sign in with Google or a code sent to your email."
+            : "we send a sign-in code straight to your email."}
         </p>
       </div>
 
