@@ -19,9 +19,10 @@ import SignIn from "./SignIn";
 import PrepareTab from "./PrepareTab";
 import StudyView from "./StudyView";
 import JournalTab from "./JournalTab";
-import ProfileTab from "./ProfileTab";
+import SettingsTab from "./SettingsTab";
+import ProfileForm, { type ProfileText } from "./ProfileForm";
 
-type Tab = "prepare" | "journal" | "profile";
+type Tab = "prepare" | "journal" | "settings";
 type Mode = "select" | "loading" | "study";
 
 // Guest mode (on by default while testing): the app signs in anonymously and
@@ -104,7 +105,9 @@ export default function SpindleApp() {
       }
       const { data } = await supabase
         .from("profiles")
-        .select("id, first_name, calling, family_context, study_focus, spiritual_season")
+        .select(
+          "id, first_name, calling, family_context, study_focus, spiritual_season, hidden_sections",
+        )
         .eq("id", user.id)
         .maybeSingle<Profile>();
       if (!cancelled) setProfile(data ?? null);
@@ -113,6 +116,28 @@ export default function SpindleApp() {
       cancelled = true;
     };
   }, [supabase, user]);
+
+  function applyProfileText(text: ProfileText) {
+    if (!user) return;
+    setProfile((prev) => ({
+      id: user.id,
+      hidden_sections: prev?.hidden_sections ?? [],
+      ...text,
+    }));
+  }
+
+  function applyHiddenSections(hidden: string[]) {
+    if (!user) return;
+    setProfile((prev) => ({
+      id: user.id,
+      first_name: prev?.first_name ?? "",
+      calling: prev?.calling ?? "",
+      family_context: prev?.family_context ?? "",
+      study_focus: prev?.study_focus ?? "",
+      spiritual_season: prev?.spiritual_season ?? "",
+      hidden_sections: hidden,
+    }));
+  }
 
   /* ---- journal: server first, cache fallback ---- */
   const loadJournal = useCallback(async () => {
@@ -263,13 +288,21 @@ export default function SpindleApp() {
       )}
 
       {needsOnboarding ? (
-        <ProfileTab
-          supabase={supabase}
-          userId={user.id}
-          profile={null}
-          onSaved={(p) => setProfile(p)}
-          onboarding
-        />
+        <div className="sp-card">
+          <p className="sp-label">Welcome</p>
+          <p className="sp-intro">
+            Tell Spindle a little about yourself and every study will be prepared for{" "}
+            <em>you</em> — your calling, your family, your season of life. Everything is
+            optional, private to you, and editable any time in Settings.
+          </p>
+          <ProfileForm
+            supabase={supabase}
+            userId={user.id}
+            initial={null}
+            onSaved={applyProfileText}
+            onboarding
+          />
+        </div>
       ) : (
         <>
           <div className="sp-tabs no-print" role="tablist" aria-label="Spindle sections">
@@ -277,7 +310,7 @@ export default function SpindleApp() {
               [
                 ["prepare", "Prepare"],
                 ["journal", `Journal`],
-                ["profile", "Profile"],
+                ["settings", "Settings"],
               ] as [Tab, string][]
             ).map(([id, label]) => (
               <button
@@ -324,6 +357,7 @@ export default function SpindleApp() {
           {tab === "prepare" && mode === "study" && study && (
             <StudyView
               entry={study}
+              hiddenSections={profile?.hidden_sections ?? []}
               onBack={() => {
                 setMode("select");
                 setError("");
@@ -341,12 +375,14 @@ export default function SpindleApp() {
             />
           )}
 
-          {tab === "profile" && (
-            <ProfileTab
+          {tab === "settings" && (
+            <SettingsTab
               supabase={supabase}
               userId={user.id}
-              profile={profile ?? null}
-              onSaved={(p) => setProfile(p)}
+              profileText={profile ?? null}
+              hiddenSections={profile?.hidden_sections ?? []}
+              onProfileSaved={applyProfileText}
+              onHiddenChange={applyHiddenSections}
               onSignOut={user.is_anonymous ? undefined : signOut}
               email={user.is_anonymous ? "" : (user.email ?? "")}
             />

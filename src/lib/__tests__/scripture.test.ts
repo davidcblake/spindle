@@ -113,6 +113,7 @@ describe("parseStudyText (fallback parser)", () => {
     principles: [{ principle: "p", explanation: "x", elsewhere: "e" }],
     patterns: [{ pattern: "p", meaning: "m", echoes: "e" }],
     christ: "c",
+    conference: [{ speaker: "s", talk: "t", session: "April 2024", point: "p" }],
     crossRefs: [{ ref: "r", note: "n" }],
     reflection: ["q1", "q2", "q3"],
     invitation: "i", anchor: "a",

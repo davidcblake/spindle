@@ -14,6 +14,14 @@ export const StudySchema = z.object({
     z.object({ pattern: z.string(), meaning: z.string(), echoes: z.string() }),
   ),
   christ: z.string(),
+  conference: z.array(
+    z.object({
+      speaker: z.string(),
+      talk: z.string(),
+      session: z.string(),
+      point: z.string(),
+    }),
+  ),
   crossRefs: z.array(z.object({ ref: z.string(), note: z.string() })),
   reflection: z.array(z.string()),
   invitation: z.string(),

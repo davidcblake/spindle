@@ -5,6 +5,8 @@ export interface Profile {
   family_context: string;
   study_focus: string;
   spiritual_season: string;
+  /** Section keys (see lib/sections.ts) the user has chosen to hide. */
+  hidden_sections: string[];
 }
 
 export const EMPTY_PROFILE: Omit<Profile, "id"> = {
@@ -13,4 +15,5 @@ export const EMPTY_PROFILE: Omit<Profile, "id"> = {
   family_context: "",
   study_focus: "",
   spiritual_season: "",
+  hidden_sections: [],
 };

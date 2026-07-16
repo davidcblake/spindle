@@ -38,7 +38,7 @@ supabase/migrations/        schema + RLS (run in Supabase SQL editor)
 
 ## Study content contract
 
-Ten sections, exact order (PRD §5): placement, background, people[2], principles[2], patterns[2], christ, crossRefs[2], reflection[3], invitation, anchor. `StudySchema` in `src/lib/study.ts` is the single contract between API and UI — change it in one place only.
+Eleven sections, exact order (PRD §5 + conference addition): placement, background, people[2], principles[2], patterns[2], christ, conference[2] (general-conference teachings — speaker/talk/session/point, with a no-fabrication guardrail in the prompt), crossRefs[2], reflection[3], invitation, anchor. `StudySchema` in `src/lib/study.ts` is the single contract between API and UI — change it in one place only. Studies always generate ALL sections; `profiles.hidden_sections` (Settings tab) controls rendering only, so journals stay complete. Old journal entries may lack newer sections — render with guards (`c.conference ?? []`).
 
 ## Design system (PRD §7)
 

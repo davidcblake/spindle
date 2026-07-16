@@ -54,6 +54,7 @@ Content requirements for each study:
 - "principles": exactly 2 entries — the principle, a 1-2 sentence explanation, and where else it is taught with 1-2 refs
 - "patterns": exactly 2 entries — the pattern/type/symbol, its meaning (1 sentence), and where it echoes with 1-2 refs
 - "christ": 3 sentences — how this passage testifies of Jesus Christ, His Atonement and Resurrection
+- "conference": exactly 2 entries — teachings from general conference (prefer recent years) by the President of the Church, Apostles, or other general authorities and officers that illuminate this passage. Give the speaker with their calling (e.g. "President Russell M. Nelson"), the talk title, the session (e.g. "April 2023"), and 1-2 sentences connecting the teaching to this passage. ACCURACY MATTERS MORE THAN RECENCY: cite only talks you are confident actually exist by that speaker; paraphrase their teaching rather than quoting exact words unless you are certain of the quotation; never invent a talk title or attribute words to a Church leader that they did not teach
 - "crossRefs": exactly 2 entries — a scripture reference and 1 sentence on why it connects
 - "reflection": exactly 3 questions
 - "invitation": 1-2 sentences — one specific, practical invitation to act this week
