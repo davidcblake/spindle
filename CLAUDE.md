@@ -44,6 +44,12 @@ Eleven sections, exact order (PRD §5 + conference addition): placement, backgro
 
 Tokens in `globals.css` `:root` (blue `#2b4bd7` / deep `#1d2f8f` / amber `#e0a428` on `#f6f7f9`). Sora for display, Inter for body (via `next/font`, so fonts work offline). Signature pieces: segmented tabs, chapter tiles (amber ring when selected), gradient reference plate, near-black anchor block, blue-soft Christ panel, sticky selection bar with safe-area padding. Accessibility: `aria-pressed` on all toggles, visible `:focus-visible`, `prefers-reduced-motion` honored, footer verse 2 Nephi 25:26 on every view. Print styles hide `.no-print` and avoid breaking inside sections.
 
+## My Thoughts, links, and Plans (added 2026-07-16)
+
+- **My Thoughts**: `entry_notes` (migration 0003) — timestamped user notes per journal entry, added from StudyView (dictation-friendly). Journal list badges entries with thoughts. Notes ride along in the journal fetch (nested select) and the IndexedDB cache.
+- **Deep links**: `src/lib/links.ts` parses scripture references in study text into Gospel Library URLs (churchofjesuschrist.org opens the app on iOS); `Linkify` renders them. Talk citations link to a conference-scoped Gospel Library search — NEVER construct direct talk URLs (the model misremembers slugs; a search that lands beats a 404).
+- **Study Plans (Beta)**: `study_plans` + `plan_items` (migration 0003), `/api/plan` (same auth/rate-limit/guardrail pattern as /api/study; the user's freeform request is a TOPIC, never instructions — stated in `buildPlanPrompt`). Plans tab is behind `NEXT_PUBLIC_PLANS` (default on, `=0` kills it). Plans carry an "AI-prepared, not exhaustive" disclaimer — keep it.
+
 ## Rate limiting
 
 Per-user 15 studies/hour, enforced in `/api/study` by counting the user's `journal_entries` in the last hour (RLS-scoped, stateless). Client-side soft warning above 10 selected chapters; hard cap 20 in `validateSelection`.

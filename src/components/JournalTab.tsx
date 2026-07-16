@@ -1,6 +1,6 @@
 "use client";
 
-import { WifiOff, Trash2 } from "lucide-react";
+import { WifiOff, Trash2, PenLine } from "lucide-react";
 import type { JournalEntry } from "@/lib/study";
 
 interface Props {
@@ -38,6 +38,14 @@ export default function JournalTab({ entries, online, onOpen, onDelete }: Props)
                 })}
               </div>
               <div className="sp-entry-anchor">&ldquo;{entry.anchor}&rdquo;</div>
+              {(entry.notes?.length ?? 0) > 0 && (
+                <div className="sp-entry-notes-badge">
+                  <PenLine size={11} aria-hidden="true" />
+                  {entry.notes!.length === 1
+                    ? "1 thought"
+                    : `${entry.notes!.length} thoughts`}
+                </div>
+              )}
             </button>
             <button
               className="sp-entry-del"

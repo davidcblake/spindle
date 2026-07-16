@@ -30,6 +30,12 @@ export const StudySchema = z.object({
 
 export type Study = z.infer<typeof StudySchema>;
 
+export interface EntryNote {
+  id: string;
+  body: string;
+  created_at: string;
+}
+
 export interface JournalEntry {
   id: string;
   reference: string;
@@ -37,6 +43,7 @@ export interface JournalEntry {
   date: string; // ISO 8601
   anchor: string;
   content: Study;
+  notes?: EntryNote[];
 }
 
 /**

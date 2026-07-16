@@ -1,20 +1,51 @@
 "use client";
 
-import { ChevronLeft, Bookmark, Printer, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, Bookmark, Printer, Sparkles, PenLine, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@/lib/study";
+import { talkSearchUrl } from "@/lib/links";
+import Linkify from "./Linkify";
 
 interface Props {
   entry: JournalEntry;
   hiddenSections: string[];
   onBack: () => void;
   onJournal: () => void;
+  onAddNote: (entryId: string, body: string) => Promise<boolean>;
+  onDeleteNote: (entryId: string, noteId: string) => Promise<void>;
 }
 
-export default function StudyView({ entry, hiddenSections, onBack, onJournal }: Props) {
+export default function StudyView({
+  entry,
+  hiddenSections,
+  onBack,
+  onJournal,
+  onAddNote,
+  onDeleteNote,
+}: Props) {
   const c = entry.content;
   const show = (key: string) => !hiddenSections.includes(key);
   // Studies saved before the conference section existed won't have it.
   const conference = c.conference ?? [];
+  const notes = entry.notes ?? [];
+
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [noteError, setNoteError] = useState("");
+
+  async function addNote() {
+    const body = draft.trim();
+    if (!body) return;
+    setBusy(true);
+    setNoteError("");
+    const ok = await onAddNote(entry.id, body);
+    setBusy(false);
+    if (ok) {
+      setDraft("");
+    } else {
+      setNoteError("Couldn't save that thought — check your connection and try again.");
+    }
+  }
 
   return (
     <div className="sp-card">
@@ -46,14 +77,18 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
       {show("placement") && (
         <section className="sp-section">
           <h3 className="sp-section-title">Where This Sits</h3>
-          <p className="sp-body-text">{c.placement}</p>
+          <p className="sp-body-text">
+            <Linkify text={c.placement} />
+          </p>
         </section>
       )}
 
       {show("background") && (
         <section className="sp-section">
           <h3 className="sp-section-title">Background &amp; Context</h3>
-          <p className="sp-body-text">{c.background}</p>
+          <p className="sp-body-text">
+            <Linkify text={c.background} />
+          </p>
         </section>
       )}
 
@@ -66,7 +101,7 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
               <p className="sp-item-detail">{p.who}</p>
               <div className="sp-elsewhere">
                 <strong>Elsewhere in scripture</strong>
-                {p.elsewhere}
+                <Linkify text={p.elsewhere} />
               </div>
             </div>
           ))}
@@ -82,7 +117,7 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
               <p className="sp-item-detail">{p.explanation}</p>
               <div className="sp-elsewhere">
                 <strong>Also taught in</strong>
-                {p.elsewhere}
+                <Linkify text={p.elsewhere} />
               </div>
             </div>
           ))}
@@ -98,7 +133,7 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
               <p className="sp-item-detail">{p.meaning}</p>
               <div className="sp-elsewhere">
                 <strong>Echoes</strong>
-                {p.echoes}
+                <Linkify text={p.echoes} />
               </div>
             </div>
           ))}
@@ -108,7 +143,9 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
       {show("christ") && (
         <section className="sp-section">
           <h3 className="sp-section-title">Christ at the Center</h3>
-          <div className="sp-christ-block">{c.christ}</div>
+          <div className="sp-christ-block">
+            <Linkify text={c.christ} />
+          </div>
         </section>
       )}
 
@@ -121,7 +158,14 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
               <p className="sp-item-detail">{t.point}</p>
               <div className="sp-elsewhere">
                 <strong>
-                  &ldquo;{t.talk}&rdquo; · {t.session}
+                  <a
+                    className="sp-ref-link"
+                    href={talkSearchUrl(t.speaker, t.talk)}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    &ldquo;{t.talk}&rdquo; · {t.session}
+                  </a>
                 </strong>
               </div>
             </div>
@@ -134,8 +178,12 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
           <h3 className="sp-section-title">Cross-References</h3>
           {c.crossRefs.map((x, i) => (
             <div key={i} className="sp-xref">
-              <span className="sp-xref-ref">{x.ref}</span>
-              <span className="sp-xref-note">{x.note}</span>
+              <span className="sp-xref-ref">
+                <Linkify text={x.ref} />
+              </span>
+              <span className="sp-xref-note">
+                <Linkify text={x.note} />
+              </span>
             </div>
           ))}
         </section>
@@ -168,6 +216,54 @@ export default function StudyView({ entry, hiddenSections, onBack, onJournal }: 
           </div>
         </section>
       )}
+
+      <section className="sp-section">
+        <h3 className="sp-section-title">My Thoughts</h3>
+        {notes.map((note) => (
+          <div key={note.id} className="sp-note">
+            <div className="sp-note-body">{note.body}</div>
+            <div className="sp-note-meta">
+              {new Date(note.created_at).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}{" "}
+              ·{" "}
+              {new Date(note.created_at).toLocaleTimeString(undefined, {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              <button
+                className="sp-note-del no-print"
+                aria-label="Delete this thought"
+                onClick={() => onDeleteNote(entry.id, note.id)}
+              >
+                <Trash2 size={12} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="no-print">
+          <textarea
+            className="sp-textarea"
+            rows={3}
+            placeholder="What stood out? What is the Spirit teaching you? Type, or tap the mic on your keyboard and speak…"
+            value={draft}
+            maxLength={10000}
+            onChange={(e) => setDraft(e.target.value)}
+            aria-label="Add a thought about this study"
+          />
+          {noteError && <p className="sp-error">{noteError}</p>}
+          <button
+            className="sp-icon-btn"
+            style={{ marginTop: 8 }}
+            onClick={addNote}
+            disabled={busy || !draft.trim()}
+          >
+            <PenLine size={13} aria-hidden="true" /> {busy ? "Saving…" : "Add to my journal"}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

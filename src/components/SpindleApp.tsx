@@ -20,9 +20,13 @@ import PrepareTab from "./PrepareTab";
 import StudyView from "./StudyView";
 import JournalTab from "./JournalTab";
 import SettingsTab from "./SettingsTab";
+import PlansTab from "./PlansTab";
 import ProfileForm, { type ProfileText } from "./ProfileForm";
 
-type Tab = "prepare" | "journal" | "settings";
+type Tab = "prepare" | "journal" | "plans" | "settings";
+
+// Kill switch for the Beta plans feature: set NEXT_PUBLIC_PLANS=0 in Vercel.
+const PLANS_ENABLED = process.env.NEXT_PUBLIC_PLANS !== "0";
 type Mode = "select" | "loading" | "study";
 
 // Guest mode (on by default while testing): the app signs in anonymously and
@@ -145,7 +149,9 @@ export default function SpindleApp() {
     if (navigator.onLine) {
       const { data, error: loadError } = await supabase
         .from("journal_entries")
-        .select("id, reference, volume, anchor, content, created_at")
+        .select(
+          "id, reference, volume, anchor, content, created_at, entry_notes ( id, body, created_at )",
+        )
         .order("created_at", { ascending: false })
         .limit(500);
       if (!loadError && data) {
@@ -156,6 +162,9 @@ export default function SpindleApp() {
           date: row.created_at,
           anchor: row.anchor,
           content: row.content,
+          notes: (row.entry_notes ?? []).sort((a: { created_at: string }, b: { created_at: string }) =>
+            a.created_at.localeCompare(b.created_at),
+          ),
         }));
         setJournal(entries);
         await cacheJournal(entries);
@@ -227,6 +236,37 @@ export default function SpindleApp() {
     setStudy(entry);
     setMode("study");
     setTab("prepare");
+  }
+
+  /* ---- My Thoughts ---- */
+  function applyEntryUpdate(updated: JournalEntry) {
+    setJournal((prev) => prev.map((j) => (j.id === updated.id ? updated : j)));
+    setStudy((prev) => (prev?.id === updated.id ? updated : prev));
+    cacheEntry(updated);
+  }
+
+  async function addNote(entryId: string, body: string): Promise<boolean> {
+    if (!user) return false;
+    const entry = journal.find((j) => j.id === entryId);
+    if (!entry) return false;
+    const { data, error: noteError } = await supabase
+      .from("entry_notes")
+      .insert({ user_id: user.id, entry_id: entryId, body })
+      .select("id, body, created_at")
+      .single();
+    if (noteError || !data) return false;
+    applyEntryUpdate({ ...entry, notes: [...(entry.notes ?? []), data] });
+    return true;
+  }
+
+  async function deleteNote(entryId: string, noteId: string) {
+    const entry = journal.find((j) => j.id === entryId);
+    if (!entry) return;
+    if (!window.confirm("Delete this thought? This can't be undone.")) return;
+    const { error: delError } = await supabase.from("entry_notes").delete().eq("id", noteId);
+    if (!delError) {
+      applyEntryUpdate({ ...entry, notes: (entry.notes ?? []).filter((n) => n.id !== noteId) });
+    }
   }
 
   async function deleteEntry(id: string) {
@@ -310,6 +350,7 @@ export default function SpindleApp() {
               [
                 ["prepare", "Prepare"],
                 ["journal", `Journal`],
+                ...(PLANS_ENABLED ? [["plans", "Plans"]] : []),
                 ["settings", "Settings"],
               ] as [Tab, string][]
             ).map(([id, label]) => (
@@ -363,6 +404,8 @@ export default function SpindleApp() {
                 setError("");
               }}
               onJournal={() => setTab("journal")}
+              onAddNote={addNote}
+              onDeleteNote={deleteNote}
             />
           )}
 
@@ -374,6 +417,8 @@ export default function SpindleApp() {
               onDelete={deleteEntry}
             />
           )}
+
+          {tab === "plans" && PLANS_ENABLED && <PlansTab supabase={supabase} online={online} />}
 
           {tab === "settings" && (
             <SettingsTab
