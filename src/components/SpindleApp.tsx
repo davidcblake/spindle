@@ -24,6 +24,11 @@ import ProfileTab from "./ProfileTab";
 type Tab = "prepare" | "journal" | "profile";
 type Mode = "select" | "loading" | "study";
 
+// Guest mode (on by default while testing): the app signs in anonymously and
+// never shows the sign-in screen. Set NEXT_PUBLIC_GUEST_MODE=0 in Vercel to
+// restore email sign-in. Requires "Allow anonymous sign-ins" in Supabase.
+const GUEST_MODE = process.env.NEXT_PUBLIC_GUEST_MODE !== "0";
+
 export interface Selection {
   volumeId: string;
   book: string | null;
@@ -61,11 +66,32 @@ export default function SpindleApp() {
 
   /* ---- auth ---- */
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (data.user) {
+        setUser(data.user);
+        return;
+      }
+      if (GUEST_MODE) {
+        // Guest mode: silently create an anonymous session so the app is
+        // usable with no sign-in screen. When real login returns, Supabase
+        // can attach an email to this same user, preserving the journal.
+        const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+        if (!cancelled) setUser(anonError ? null : (anon.user ?? null));
+      } else {
+        setUser(null);
+      }
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (session?.user) setUser(session.user);
+      else if (!GUEST_MODE) setUser(null);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, [supabase]);
 
   /* ---- profile ---- */
@@ -321,8 +347,8 @@ export default function SpindleApp() {
               userId={user.id}
               profile={profile ?? null}
               onSaved={(p) => setProfile(p)}
-              onSignOut={signOut}
-              email={user.email ?? ""}
+              onSignOut={user.is_anonymous ? undefined : signOut}
+              email={user.is_anonymous ? "" : (user.email ?? "")}
             />
           )}
         </>
