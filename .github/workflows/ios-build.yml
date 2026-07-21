@@ -9,7 +9,7 @@ on:
       remote_url:
         description: "Deployed app URL the shell should load"
         required: false
-        default: "https://spindle-ten.vercel.app"
+        default: "https://spindlestudy.vercel.app"
 
 jobs:
   build:
@@ -17,4 +17,4 @@ jobs:
     with:
       app_name: Spindle
       bundle_id: com.wpv.spindle
-      remote_url: ${{ inputs.remote_url || 'https://spindle-ten.vercel.app' }}
+      remote_url: ${{ inputs.remote_url || 'https://spindlestudy.vercel.app' }}
