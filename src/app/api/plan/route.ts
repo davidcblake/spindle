@@ -66,7 +66,10 @@ export async function POST(request: Request) {
   let lastError = "";
   for (let attempt = 0; attempt < 2 && !plan; attempt++) {
     try {
-      const response = await anthropic.messages.parse({
+      // Stream so a long generation keeps the connection alive, and use
+      // medium effort — building a plan is recall + ordering, not deep
+      // reasoning, so full effort just burns latency toward the 60s ceiling.
+      const stream = anthropic.messages.stream({
         model,
         max_tokens: 8192,
         system: buildPlanPrompt(profile ?? null),
@@ -76,14 +79,32 @@ export async function POST(request: Request) {
             content: `Create a study plan for this request: ${parsed.data.request}`,
           },
         ],
-        output_config: { format: zodOutputFormat(PlanSchema) },
+        output_config: { format: zodOutputFormat(PlanSchema), effort: "medium" },
       });
+      const response = await stream.finalMessage();
+
       if (response.stop_reason === "max_tokens") {
         lastError = "The plan came out too long — try describing a narrower topic.";
         continue;
       }
-      if (response.parsed_output && response.parsed_output.items.length > 0) {
-        plan = response.parsed_output;
+      if (response.stop_reason === "refusal") {
+        lastError = "That request couldn't be turned into a study plan — try rephrasing it around a gospel topic.";
+        continue;
+      }
+      const text = response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("");
+      let candidate: unknown;
+      try {
+        candidate = JSON.parse(text);
+      } catch {
+        lastError = "The plan came back incomplete — tap again, or try a narrower topic.";
+        continue;
+      }
+      const validated = PlanSchema.safeParse(candidate);
+      if (validated.success && validated.data.items.length > 0) {
+        plan = validated.data;
       } else {
         lastError = "The plan came back in an unexpected shape — tap again.";
       }

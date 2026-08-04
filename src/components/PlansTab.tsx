@@ -63,11 +63,17 @@ export default function PlansTab({ supabase, online }: Props) {
     if (!text) return;
     setCreating(true);
     setError("");
+    // Broad plans can take most of a minute to build. Give the request a
+    // generous ceiling (past the server's own 60s limit) so a slow phone
+    // connection surfaces the real result instead of aborting early.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ request: text }),
+        signal: controller.signal,
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.plan) {
@@ -77,12 +83,19 @@ export default function PlansTab({ supabase, online }: Props) {
       setOpen(data.plan);
       setRequest("");
     } catch (e) {
-      setError(
-        e instanceof Error && e.message !== "Failed to fetch"
-          ? e.message
-          : "Couldn't reach the study service — check your connection.",
-      );
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setError(
+          "That plan is taking longer than expected — try a slightly narrower topic (e.g. one theme or one speaker).",
+        );
+      } else {
+        setError(
+          e instanceof Error && e.message !== "Failed to fetch"
+            ? e.message
+            : "Couldn't reach the study service — check your connection.",
+        );
+      }
     } finally {
+      clearTimeout(timeout);
       setCreating(false);
     }
   }
@@ -205,6 +218,12 @@ export default function PlansTab({ supabase, online }: Props) {
         >
           {creating ? "Preparing your plan…" : "Create plan"}
         </button>
+        {creating && (
+          <p className="sp-soft-warning" role="status">
+            Gathering and ordering the right scriptures and talks — broad topics can take up to a
+            minute. Please keep this screen open.
+          </p>
+        )}
         {!online && (
           <p className="sp-soft-warning">Creating a plan needs a connection.</p>
         )}
