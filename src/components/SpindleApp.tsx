@@ -110,7 +110,7 @@ export default function SpindleApp() {
       const { data } = await supabase
         .from("profiles")
         .select(
-          "id, first_name, calling, family_context, study_focus, spiritual_season, hidden_sections",
+          "id, first_name, calling, family_context, study_focus, spiritual_season, hidden_sections, conference_scope",
         )
         .eq("id", user.id)
         .maybeSingle<Profile>();
@@ -126,6 +126,7 @@ export default function SpindleApp() {
     setProfile((prev) => ({
       id: user.id,
       hidden_sections: prev?.hidden_sections ?? [],
+      conference_scope: prev?.conference_scope ?? "core",
       ...text,
     }));
   }
@@ -139,7 +140,22 @@ export default function SpindleApp() {
       family_context: prev?.family_context ?? "",
       study_focus: prev?.study_focus ?? "",
       spiritual_season: prev?.spiritual_season ?? "",
+      conference_scope: prev?.conference_scope ?? "core",
       hidden_sections: hidden,
+    }));
+  }
+
+  function applyConferenceScope(scope: "core" | "expanded") {
+    if (!user) return;
+    setProfile((prev) => ({
+      id: user.id,
+      first_name: prev?.first_name ?? "",
+      calling: prev?.calling ?? "",
+      family_context: prev?.family_context ?? "",
+      study_focus: prev?.study_focus ?? "",
+      spiritual_season: prev?.spiritual_season ?? "",
+      hidden_sections: prev?.hidden_sections ?? [],
+      conference_scope: scope,
     }));
   }
 
@@ -426,8 +442,10 @@ export default function SpindleApp() {
               userId={user.id}
               profileText={profile ?? null}
               hiddenSections={profile?.hidden_sections ?? []}
+              conferenceScope={profile?.conference_scope ?? "core"}
               onProfileSaved={applyProfileText}
               onHiddenChange={applyHiddenSections}
+              onScopeChange={applyConferenceScope}
               onSignOut={user.is_anonymous ? undefined : signOut}
               email={user.is_anonymous ? "" : (user.email ?? "")}
             />

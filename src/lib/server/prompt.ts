@@ -7,6 +7,28 @@ export interface ReaderProfile {
   family_context?: string | null;
   study_focus?: string | null;
   spiritual_season?: string | null;
+  conference_scope?: string | null;
+}
+
+/** Sourcing instruction for general-conference teachings, shared by the
+ *  study prompt and the plan prompt. The overriding rule is relevance and
+ *  quality — choose talks that genuinely, deeply address the topic; never
+ *  pad with talks that only glancingly mention it. Fewer, excellent,
+ *  directly-on-point talks beat more marginal ones. */
+function conferenceSourcing(profile: ReaderProfile | null): string {
+  const quality =
+    " Above all, choose for relevance and depth: prefer the talk that most directly and fully addresses this topic. Never include a talk that only barely touches the subject — a smaller number of excellent, on-point talks is far better than padding.";
+
+  if (profile?.conference_scope === "expanded") {
+    return (
+      "Choose the general-conference teachings that best and most directly address the topic, drawing freely from the current and recent past First Presidency and Quorum of the Twelve Apostles, and from other general authorities and general officers, over roughly the last 10 to 15 years. Give preference to the current First Presidency and Quorum of the Twelve when their teaching addresses the topic comparably well." +
+      quality
+    );
+  }
+  return (
+    "Emphasize the current First Presidency and Quorum of the Twelve Apostles — quote them by default. But do not miss an exceptional talk: if a teaching from another general authority or officer, or from a recent past prophet or apostle, addresses this topic notably better than anything the current First Presidency and Twelve have said on it, include that one rather than settle for a weaker fit." +
+    quality
+  );
 }
 
 /** Collapse whitespace and cap length so profile text can't balloon or
@@ -54,7 +76,7 @@ Content requirements for each study:
 - "principles": exactly 2 entries — the principle, a 1-2 sentence explanation, and where else it is taught with 1-2 refs
 - "patterns": exactly 2 entries — the pattern/type/symbol, its meaning (1 sentence), and where it echoes with 1-2 refs
 - "christ": 3 sentences — how this passage testifies of Jesus Christ, His Atonement and Resurrection
-- "conference": exactly 2 entries — teachings from general conference (prefer recent years) by the President of the Church, Apostles, or other general authorities and officers that illuminate this passage. Give the speaker with their calling (e.g. "President Russell M. Nelson"), the talk title, the session (e.g. "April 2023"), and 1-2 sentences connecting the teaching to this passage. ACCURACY MATTERS MORE THAN RECENCY: cite only talks you are confident actually exist by that speaker; paraphrase their teaching rather than quoting exact words unless you are certain of the quotation; never invent a talk title or attribute words to a Church leader that they did not teach
+- "conference": exactly 2 entries — teachings from general conference that illuminate this passage. SOURCING: ${conferenceSourcing(profile)} Give the speaker with their calling (e.g. "President Russell M. Nelson"), the talk title, the session (e.g. "April 2023"), and 1-2 sentences connecting the teaching to this passage. ACCURACY MATTERS MORE THAN RECENCY: cite only talks you are confident actually exist by that speaker; paraphrase their teaching rather than quoting exact words unless you are certain of the quotation; never invent a talk title or attribute words to a Church leader that they did not teach
 - "crossRefs": exactly 2 entries — a scripture reference and 1 sentence on why it connects
 - "reflection": exactly 3 questions
 - "invitation": 1-2 sentences — one specific, practical invitation to act this week
@@ -75,6 +97,7 @@ Plan construction rules:
 - Order items in the sequence they should be studied (chronological, scriptural order, or building logically from foundations).
 - Each item: "title" (what to study, e.g. the scripture passage or talk), "subtitle" (1 sentence: what to look for or why it belongs in the sequence), and "reference" — a precise scripture reference (e.g. "Alma 7") or a talk in the form: Speaker — "Talk Title" (April 2024). Leave reference empty only when neither applies.
 - ACCURACY OVER COMPLETENESS: name only talks and speakers you are confident are real. For requests like "all of Elder Maxwell's talks," include the talks you reliably know and say in the description that the list covers his best-known conference addresses rather than claiming completeness.
+- CONFERENCE SOURCING: when YOU are choosing which general-conference talks to include for a topic, ${conferenceSourcing(profile)} If the user's request explicitly names a specific speaker or talk (e.g. "Elder Maxwell's talks"), honor that request regardless of this sourcing preference.
 - Aim for 7-30 items unless the request clearly implies more or fewer. Keep the whole plan under 1500 tokens.
 - "description": 1-2 sentences on what the plan covers and the spirit of it, pointing toward Jesus Christ.`;
 }

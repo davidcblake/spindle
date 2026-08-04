@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   // 4. Load the profile for personalization (missing profile is fine).
   const { data: profile } = await supabase
     .from("profiles")
-    .select("first_name, calling, family_context, study_focus, spiritual_season")
+    .select("first_name, calling, family_context, study_focus, spiritual_season, conference_scope")
     .eq("id", user.id)
     .maybeSingle<ReaderProfile>();
 

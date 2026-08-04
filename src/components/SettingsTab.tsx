@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SECTION_DEFS } from "@/lib/sections";
+import type { ConferenceScope } from "@/lib/profile";
 import ProfileForm, { type ProfileText } from "./ProfileForm";
 
 interface Props {
@@ -10,19 +11,36 @@ interface Props {
   userId: string;
   profileText: ProfileText | null;
   hiddenSections: string[];
+  conferenceScope: ConferenceScope;
   onProfileSaved: (text: ProfileText) => void;
   onHiddenChange: (hidden: string[]) => void;
+  onScopeChange: (scope: ConferenceScope) => void;
   onSignOut?: () => void;
   email?: string;
 }
+
+const SCOPE_OPTIONS: { value: ConferenceScope; title: string; note: string }[] = [
+  {
+    value: "core",
+    title: "Emphasize First Presidency & Twelve",
+    note: "Quote the current First Presidency and Quorum of the Twelve by default — but never miss an exceptional talk from a broader source when it truly nails the topic.",
+  },
+  {
+    value: "expanded",
+    title: "Best fit, wherever it's found",
+    note: "Choose whatever conference talk best addresses the topic across recent years, still giving preference to the current First Presidency and Twelve when the fit is comparable.",
+  },
+];
 
 export default function SettingsTab({
   supabase,
   userId,
   profileText,
   hiddenSections,
+  conferenceScope,
   onProfileSaved,
   onHiddenChange,
+  onScopeChange,
   onSignOut,
   email,
 }: Props) {
@@ -39,6 +57,20 @@ export default function SettingsTab({
       .upsert({ id: userId, hidden_sections: next, updated_at: new Date().toISOString() });
     if (saveError) {
       onHiddenChange(hiddenSections); // revert
+      setError("Couldn't save that preference — check your connection and try again.");
+    }
+  }
+
+  async function chooseScope(scope: ConferenceScope) {
+    if (scope === conferenceScope) return;
+    const previous = conferenceScope;
+    onScopeChange(scope); // optimistic
+    setError("");
+    const { error: saveError } = await supabase
+      .from("profiles")
+      .upsert({ id: userId, conference_scope: scope, updated_at: new Date().toISOString() });
+    if (saveError) {
+      onScopeChange(previous); // revert
       setError("Couldn't save that preference — check your connection and try again.");
     }
   }
@@ -66,6 +98,30 @@ export default function SettingsTab({
           );
         })}
       </div>
+      <hr className="sp-divider" />
+
+      <p className="sp-label">General conference voices</p>
+      <p className="sp-intro">
+        Whose conference teachings the studies and plans draw on. The current First Presidency
+        and Quorum of the Twelve are always prioritized.
+      </p>
+      <div className="sp-pill-row" role="group" aria-label="General conference sourcing">
+        {SCOPE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            className={`sp-pill ${conferenceScope === opt.value ? "selected" : ""}`}
+            aria-pressed={conferenceScope === opt.value}
+            onClick={() => chooseScope(opt.value)}
+          >
+            {opt.title}
+          </button>
+        ))}
+      </div>
+      <p className="sp-field-hint">
+        {SCOPE_OPTIONS.find((o) => o.value === conferenceScope)?.note}
+      </p>
+
       {error && <p className="sp-error" role="alert">{error}</p>}
 
       <hr className="sp-divider" />
