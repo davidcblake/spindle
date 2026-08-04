@@ -1,9 +1,28 @@
 "use client";
 
-import { segmentReferences } from "@/lib/links";
+import { segmentReferences, parseTalkReference, talkSearchUrl } from "@/lib/links";
 
-/** Renders text with scripture references as Gospel Library links. */
+/**
+ * Renders text with every scripture and talk reference linked into Gospel
+ * Library. A whole string shaped like a talk citation (Speaker — "Title"
+ * (Session)) becomes one talk-search link; otherwise inline scripture
+ * references within the text are linked.
+ */
 export default function Linkify({ text }: { text: string }) {
+  const talk = parseTalkReference(text.trim());
+  if (talk) {
+    return (
+      <a
+        className="sp-ref-link"
+        href={talkSearchUrl(talk.speaker, talk.talk)}
+        target="_blank"
+        rel="noopener"
+      >
+        {text}
+      </a>
+    );
+  }
+
   const segments = segmentReferences(text);
   return (
     <>

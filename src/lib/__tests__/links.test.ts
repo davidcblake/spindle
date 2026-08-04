@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { segmentReferences, referenceUrl, talkSearchUrl } from "../links";
+import { segmentReferences, referenceUrl, talkSearchUrl, parseTalkReference } from "../links";
 
 describe("referenceUrl", () => {
   it("builds verse-range links", () => {
@@ -57,6 +57,31 @@ describe("segmentReferences", () => {
     expect(segmentReferences("No references here.")).toEqual([
       { text: "No references here." },
     ]);
+  });
+});
+
+describe("parseTalkReference", () => {
+  it("parses a Speaker — \"Title\" (Session) citation", () => {
+    expect(
+      parseTalkReference('Elder David A. Bednar — "Bear Up Their Burdens with Ease" (April 2014)'),
+    ).toEqual({ speaker: "Elder David A. Bednar", talk: "Bear Up Their Burdens with Ease" });
+  });
+  it("handles curly quotes", () => {
+    expect(
+      parseTalkReference("President Russell M. Nelson — “Think Celestial!” (October 2023)"),
+    ).toEqual({ speaker: "President Russell M. Nelson", talk: "Think Celestial!" });
+  });
+  it("returns null for a scripture reference", () => {
+    expect(parseTalkReference("Alma 42:13-25")).toBeNull();
+    expect(parseTalkReference("Doctrine and Covenants 6:9; 64:7")).toBeNull();
+  });
+  it("does not misfire on prose with an em-dash and a trailing parenthetical", () => {
+    expect(
+      parseTalkReference("faith — and hope — unto salvation (see Alma 32)"),
+    ).toBeNull();
+  });
+  it("requires a year in the session", () => {
+    expect(parseTalkReference('Someone — "A Title" (a devotional)')).toBeNull();
   });
 });
 

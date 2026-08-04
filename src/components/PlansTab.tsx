@@ -122,7 +122,9 @@ export default function PlansTab({ supabase, online }: Props) {
             {done} of {open.items.length} complete
           </p>
         </div>
-        <p className="sp-intro">{open.description}</p>
+        <p className="sp-intro">
+          <Linkify text={open.description} />
+        </p>
         {open.items.map((item) => (
           <div key={item.id} className={`sp-plan-item ${item.completed_at ? "done" : ""}`}>
             <button
@@ -141,7 +143,11 @@ export default function PlansTab({ supabase, online }: Props) {
               <div className="sp-plan-item-title">
                 <Linkify text={item.title} />
               </div>
-              {item.subtitle && <p className="sp-plan-item-sub">{item.subtitle}</p>}
+              {item.subtitle && (
+                <p className="sp-plan-item-sub">
+                  <Linkify text={item.subtitle} />
+                </p>
+              )}
               {item.reference && item.reference !== item.title && (
                 <p className="sp-plan-item-ref">
                   <Linkify text={item.reference} />

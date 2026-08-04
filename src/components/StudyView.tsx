@@ -98,7 +98,9 @@ export default function StudyView({
           {c.people.map((p, i) => (
             <div key={i} className="sp-item">
               <div className="sp-item-name">{p.name}</div>
-              <p className="sp-item-detail">{p.who}</p>
+              <p className="sp-item-detail">
+                <Linkify text={p.who} />
+              </p>
               <div className="sp-elsewhere">
                 <strong>Elsewhere in scripture</strong>
                 <Linkify text={p.elsewhere} />
@@ -114,7 +116,9 @@ export default function StudyView({
           {c.principles.map((p, i) => (
             <div key={i} className="sp-item">
               <div className="sp-item-name">{p.principle}</div>
-              <p className="sp-item-detail">{p.explanation}</p>
+              <p className="sp-item-detail">
+                <Linkify text={p.explanation} />
+              </p>
               <div className="sp-elsewhere">
                 <strong>Also taught in</strong>
                 <Linkify text={p.elsewhere} />
@@ -130,7 +134,9 @@ export default function StudyView({
           {c.patterns.map((p, i) => (
             <div key={i} className="sp-item">
               <div className="sp-item-name">{p.pattern}</div>
-              <p className="sp-item-detail">{p.meaning}</p>
+              <p className="sp-item-detail">
+                <Linkify text={p.meaning} />
+              </p>
               <div className="sp-elsewhere">
                 <strong>Echoes</strong>
                 <Linkify text={p.echoes} />
@@ -155,7 +161,9 @@ export default function StudyView({
           {conference.map((t, i) => (
             <div key={i} className="sp-item">
               <div className="sp-item-name">{t.speaker}</div>
-              <p className="sp-item-detail">{t.point}</p>
+              <p className="sp-item-detail">
+                <Linkify text={t.point} />
+              </p>
               <div className="sp-elsewhere">
                 <strong>
                   <a
@@ -194,7 +202,9 @@ export default function StudyView({
           <h3 className="sp-section-title">For Reflection</h3>
           <ol className="sp-reflection-list">
             {c.reflection.map((q, i) => (
-              <li key={i}>{q}</li>
+              <li key={i}>
+                <Linkify text={q} />
+              </li>
             ))}
           </ol>
         </section>
@@ -203,7 +213,9 @@ export default function StudyView({
       {show("invitation") && (
         <section className="sp-section">
           <h3 className="sp-section-title">Invitation to Act</h3>
-          <p className="sp-body-text">{c.invitation}</p>
+          <p className="sp-body-text">
+            <Linkify text={c.invitation} />
+          </p>
         </section>
       )}
 
@@ -212,7 +224,9 @@ export default function StudyView({
           <h3 className="sp-section-title">Remember This</h3>
           <div className="sp-anchor-block">
             <Sparkles size={16} style={{ color: "var(--amber)", marginBottom: 6 }} aria-hidden="true" />
-            <div>{c.anchor}</div>
+            <div>
+              <Linkify text={c.anchor} />
+            </div>
           </div>
         </section>
       )}
@@ -221,7 +235,9 @@ export default function StudyView({
         <h3 className="sp-section-title">My Thoughts</h3>
         {notes.map((note) => (
           <div key={note.id} className="sp-note">
-            <div className="sp-note-body">{note.body}</div>
+            <div className="sp-note-body">
+              <Linkify text={note.body} />
+            </div>
             <div className="sp-note-meta">
               {new Date(note.created_at).toLocaleDateString(undefined, {
                 month: "short",

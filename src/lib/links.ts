@@ -161,3 +161,22 @@ export function talkSearchUrl(speaker: string, talk: string): string {
   const query = encodeURIComponent(`${talk} ${speaker}`);
   return `https://www.churchofjesuschrist.org/search?lang=eng&query=${query}&facet=general-conference`;
 }
+
+// A talk citation as the prompts format it: Speaker — "Title" (Session).
+// Deliberately strict — a quoted title and a year in the parenthetical —
+// so ordinary prose (an em-dash plus a trailing "(see …)") never misfires.
+const TALK_RE = /^(.+?)\s*[—–]\s*["“”'](.+?)["“”']\s*\(([^)]*\d{4}[^)]*)\)\s*$/;
+
+/** Parses a `Speaker — "Title" (Session)` citation. Returns null for anything
+ *  that isn't shaped like a talk (e.g. a scripture reference), so callers can
+ *  fall back to scripture linking. */
+export function parseTalkReference(
+  reference: string,
+): { speaker: string; talk: string } | null {
+  const match = reference.match(TALK_RE);
+  if (!match) return null;
+  const speaker = match[1].trim();
+  const talk = match[2].trim();
+  if (!speaker || !talk) return null;
+  return { speaker, talk };
+}
