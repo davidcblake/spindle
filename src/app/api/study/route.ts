@@ -81,19 +81,41 @@ export async function POST(request: Request) {
   let lastError = "";
   for (let attempt = 0; attempt < 2 && !study; attempt++) {
     try {
-      const response = await anthropic.messages.parse({
+      // Stream so a long generation keeps the connection alive, and use
+      // medium effort — the study's depth comes from the ten-section prompt
+      // structure, not from full reasoning budget, so this cuts latency
+      // (and mobile timeouts) without meaningfully thinning the content.
+      const stream = anthropic.messages.stream({
         model,
         max_tokens: 4096,
         system,
         messages: [{ role: "user", content: userMessage }],
-        output_config: { format: zodOutputFormat(StudySchema) },
+        output_config: { format: zodOutputFormat(StudySchema), effort: "medium" },
       });
+      const response = await stream.finalMessage();
+
       if (response.stop_reason === "max_tokens") {
         lastError = "The study was cut off — try fewer chapters, or tap again.";
         continue;
       }
-      if (response.parsed_output) {
-        study = response.parsed_output;
+      if (response.stop_reason === "refusal") {
+        lastError = "That passage couldn't be prepared right now — please tap again.";
+        continue;
+      }
+      const text = response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("");
+      let candidate: unknown;
+      try {
+        candidate = JSON.parse(text);
+      } catch {
+        lastError = "The study came back incomplete — try fewer chapters, or tap again.";
+        continue;
+      }
+      const validated = StudySchema.safeParse(candidate);
+      if (validated.success) {
+        study = validated.data;
       } else {
         lastError = "The study came back in an unexpected shape.";
       }

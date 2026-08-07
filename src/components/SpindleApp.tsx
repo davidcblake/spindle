@@ -215,6 +215,11 @@ export default function SpindleApp() {
     setError("");
     setLoadingRef(selection.reference);
     setMode("loading");
+    // Preparing a study can take most of a minute. Give it a generous
+    // ceiling (past the server's own 60s limit) so a slow phone connection
+    // surfaces the real result instead of aborting early.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
     try {
       const res = await fetch("/api/study", {
         method: "POST",
@@ -225,6 +230,7 @@ export default function SpindleApp() {
           chapters: selection.chapters,
           extras: selection.extras,
         }),
+        signal: controller.signal,
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.entry) {
@@ -238,12 +244,20 @@ export default function SpindleApp() {
       await cacheEntry(entry);
       setMode("study");
     } catch (e) {
-      setError(
-        e instanceof Error && e.message !== "Failed to fetch"
-          ? e.message
-          : "Couldn't reach the study service — check your connection.",
-      );
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setError(
+          "That study took longer than expected — check your connection and tap Prepare Study again.",
+        );
+      } else {
+        setError(
+          e instanceof Error && e.message !== "Failed to fetch"
+            ? e.message
+            : "Couldn't reach the study service — check your connection.",
+        );
+      }
       setMode("select");
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
