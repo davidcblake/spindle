@@ -1,7 +1,8 @@
 # 0001 — Rebuilding Spindle natively on Plug and Play
 
 **Date:** 2026-09-07
-**Status:** Proposed — the decision in §3 is Dave's, and everything else waits on it.
+**Status:** Accepted. The open question in §3 was answered on 2026-09-07: nobody but Dave
+has a journal in Spindle, so there is nothing to preserve and **Option A is the design**.
 
 ## What this proposes
 
@@ -88,11 +89,28 @@ The cost is that the native app reimplements the offline cache the foundation al
 provides, `PPData` is barely used, every App Store account requirement stays, and the
 person's journal keeps living on a server we run.
 
-### The recommendation, and why it is not mine to make
+### Answered: Option A
 
-**Option A**, unless somebody other than Dave has a journal in Spindle today that has to
-follow them to the phone. That is a fact about real users, not about code, and it decides
-the architecture — so it is the one question this record cannot answer for itself.
+Asked on 2026-09-07 whether anybody other than Dave has a journal that has to follow them
+to the phone, the answer was no. Nothing has to be carried over, so there is no reason to
+keep accounts, and **the journal lives in iCloud**.
+
+Three things follow, and they are the work rather than the decision:
+
+1. **There is no sign-in screen.** `PPAuth` is not used in version one. If Spindle ever
+   needs to know who somebody is, Sign in with Apple is the way in, and adding it later
+   costs nothing that skipping it now saves.
+2. **The study is saved on the device**, not by the server. `/api/study` today generates
+   *and* persists; the native app takes the generated study and writes it to SwiftData.
+   The server keeps no copy, which is the point.
+3. **`/api/study` needs a way to recognise and rate-limit a caller with no account.**
+   Today it reads a Supabase session. It has to keep rate limiting — an unauthenticated
+   endpoint holding an Anthropic key is somebody else's free API — so this is a real
+   piece of work, and the first thing to design. It is a server change, in the web
+   repository, not in the app.
+
+**The web app keeps its own journal, and the two do not meet.** That is now a deliberate
+fork rather than an oversight: the web app is Dave's, the phone app is the product.
 
 ## 4. What breaks a rule, said out loud
 
@@ -138,6 +156,7 @@ survives: preparing a study is a place you choose to go, not a place the app put
 
 ## Revisit when
 
-- §3 is answered, at which point this becomes Accepted or is rewritten around Option B.
+- Somebody other than Dave starts keeping a journal on the web, which would make the fork
+  in §3 a problem rather than a decision.
 - The first TestFlight build is in somebody else's hands, which is when the split in §2
   stops being a prediction.
