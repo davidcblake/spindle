@@ -1,7 +1,7 @@
 # 0002 — Who may call the study API, when nobody has an account
 
 **Date:** 2026-09-07
-**Status:** Proposed — option in §4 is Dave's call, because it is his money at risk.
+**Status:** Accepted 2026-10-06 — **option A, App Attest**. Dave's call, as it was his money at risk.
 **Follows:** `0001`, which decided the journal lives in iCloud and Spindle has no accounts.
 
 ## The problem, which is bigger than it first looks
@@ -78,6 +78,11 @@ nobody proposes it later.
 The server mints a random token on first launch and counts against it. Simple and honest
 about what it is: protection against accident, not against abuse. Anybody can ask for
 another token.
+
+## The decision
+
+**Accepted 2026-10-06: A, App Attest.** The reasoning below was the recommendation and
+is now the reason.
 
 ## The recommendation
 
