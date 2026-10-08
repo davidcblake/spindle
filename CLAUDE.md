@@ -56,7 +56,7 @@ Per-user 15 studies/hour, enforced in `/api/study` by counting the user's `journ
 
 ## Env vars
 
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY` (server only — dedicated Spindle key, not Dossier's), `ANTHROPIC_MODEL` (optional). See `.env.example`; operator setup in `SETUP.md`.
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY` (server only — dedicated Spindle key, not Dossier's), `ANTHROPIC_MODEL` (optional), `APP_SERVER_SECRET` and `APPLE_TEAM_ID` (server only — the native iPhone app's `/api/app/*` routes, decisions 0002–0004). See `.env.example`; operator setup in `SETUP.md`.
 
 ## Commands
 

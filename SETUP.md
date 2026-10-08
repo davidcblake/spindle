@@ -75,3 +75,22 @@ On your iPhone, open the production URL and check:
 ## 5. iOS app (optional, later)
 
 The repo already carries the Plug and Play wrapper (`.github/workflows/ios-build.yml`, bundle id `com.wpv.spindle`). When you want the native shell: GitHub → Actions → **iOS build (Capacitor)** → Run workflow → download the `ios-project` artifact → open in Xcode → run on your iPhone (same Track A flow as Dossier; free-signing builds expire after 7 days). The PWA covers daily use until then.
+
+## 6. The native iPhone app's study routes (~10 min)
+
+The native app (`davidcblake/spindle-ios`) prepares studies through `/api/app/*`, proving
+itself with Apple's App Attest instead of signing in (decisions `0002`–`0004`). Until the
+two values below are set, those routes answer "isn't set up on the server yet" and the web
+app is unaffected.
+
+1. **Supabase → SQL editor:** run `supabase/migrations/0005_app_attest.sql`.
+2. **Make a secret:** in Terminal, `openssl rand -base64 48`. Copy the output.
+3. **Supabase → SQL editor**, with your secret pasted in:
+   `insert into public.app_server_secret (secret_hash) values (encode(extensions.digest('YOUR-SECRET', 'sha256'), 'hex'));`
+4. **Vercel → Settings → Environment Variables**, then redeploy:
+   - `APP_SERVER_SECRET` = the same secret
+   - `APPLE_TEAM_ID` = your 10-character Team ID (developer.apple.com → Account → Membership details)
+5. **Once, by hand:** open apple.com/certificateauthority, download *Apple App Attestation
+   Root CA*, and check its SHA-256 fingerprint matches the certificate in
+   `src/lib/server/appAttest.ts` (`node -e` with `X509Certificate(...).fingerprint256`
+   prints it). The session that wrote it could not reach apple.com.
