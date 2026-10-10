@@ -1,7 +1,10 @@
 # Keeping studies accurate — options for later
 
-**Written 2026-10-10. Nothing here is decided or built.** Dave asked to note these and come
-back to them if needed. Read this before building anything that touches how studies cite
+**Written 2026-10-10.** Dave then asked for as much of option C as can be built without
+permission. **Built:** option A (`lib/references.ts`, `lib/verseCounts.ts`), C's grounding
+with verse counts, and the standing test set (`pnpm eval`, `evals/`). **Waiting:** option B
+and C's talk grounding, both on permission (below), and a "report a problem" button, on
+where alerts should go. Read this before building anything that touches how studies cite
 scripture or conference talks.
 
 ## The risk, from highest to lowest
@@ -45,7 +48,16 @@ on Haiku 5.5.
 - **[Church permissions office](https://www.churchofjesuschrist.org/legal/permissions?lang=eng)**
   — the route for talk text, footnotes and the Topical Guide.
 
-## If this is picked up
+## How option A works, as built
+
+Before writing, the model is told how many verses each chapter of the passage has. After,
+every reference anywhere in the study or plan is checked against `VERSE_COUNTS`. A first
+try with a reference that does not exist goes back — on the step-up model (decision 0005)
+— with a note naming what was wrong; if the second still has one, it is cut back to the
+chapter (`Alma 32:45` → `Alma 32`) or the book. Each occurrence is logged as
+`reference_problems`, and `pnpm eval` reports them before repair.
+
+## If the rest is picked up
 
 Start with A (no permission needed). For B and C, Dave writes to the BYU Scripture Citation
 Index team and the Church permissions office describing Spindle as a free, faith-building
