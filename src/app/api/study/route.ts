@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { validateSelection } from "@/lib/scripture";
-import { StudySchema, type Study } from "@/lib/study";
-import { buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
+import type { ReaderProfile } from "@/lib/server/prompt";
+import { generateStudy } from "@/lib/server/generate";
 
 export const maxDuration = 60; // Vercel function limit; generation is well under this
 
@@ -71,74 +69,11 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .maybeSingle<ReaderProfile>();
 
-  // 5. Generate with structured outputs; retry once on validation failure.
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-  const system = buildSystemPrompt(profile ?? null);
-  const userMessage = `Prepare a complete study for: ${reference} (${volumeName}).`;
-
-  let study: Study | null = null;
-  let lastError = "";
-  for (let attempt = 0; attempt < 2 && !study; attempt++) {
-    try {
-      // Stream so a long generation keeps the connection alive, and use
-      // medium effort — the study's depth comes from the ten-section prompt
-      // structure, not from full reasoning budget, so this cuts latency
-      // (and mobile timeouts) without meaningfully thinning the content.
-      const stream = anthropic.messages.stream({
-        model,
-        max_tokens: 4096,
-        system,
-        messages: [{ role: "user", content: userMessage }],
-        output_config: { format: zodOutputFormat(StudySchema), effort: "medium" },
-      });
-      const response = await stream.finalMessage();
-
-      if (response.stop_reason === "max_tokens") {
-        lastError = "The study was cut off — try fewer chapters, or tap again.";
-        continue;
-      }
-      if (response.stop_reason === "refusal") {
-        lastError = "That passage couldn't be prepared right now — please tap again.";
-        continue;
-      }
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("");
-      let candidate: unknown;
-      try {
-        candidate = JSON.parse(text);
-      } catch {
-        lastError = "The study came back incomplete — try fewer chapters, or tap again.";
-        continue;
-      }
-      const validated = StudySchema.safeParse(candidate);
-      if (validated.success) {
-        study = validated.data;
-      } else {
-        lastError = "The study came back in an unexpected shape.";
-      }
-    } catch (e) {
-      if (e instanceof Anthropic.APIConnectionError) {
-        return err(502, "Couldn't reach the study service — check your connection.", "network");
-      }
-      if (e instanceof Anthropic.RateLimitError) {
-        return err(429, "The study service is busy — wait a moment and tap again.", "rate_limit");
-      }
-      if (e instanceof Anthropic.APIError) {
-        return err(
-          502,
-          `The study service returned an error (${e.status ?? "unknown"}): ${e.message}`,
-          "api",
-        );
-      }
-      lastError = e instanceof Error ? e.message : "Unknown error.";
-    }
-  }
-  if (!study) {
-    return err(502, lastError || "The study service returned an empty response — tap again.");
-  }
+  // 5. Generate (lib/server/generate.ts: model per decision 0005, one retry
+  //    on validation failure, specific messages).
+  const generated = await generateStudy(reference, volumeName, profile ?? null);
+  if (!generated.ok) return err(generated.status, generated.message, generated.type);
+  const study = generated.value;
 
   // 6. Persist BEFORE returning (GEN-6) — the entry exists even if the
   //    response never reaches the device. RLS scopes the insert to the user.
