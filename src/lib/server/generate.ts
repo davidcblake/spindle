@@ -6,6 +6,7 @@ import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
 import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models";
 import { problemsIn, repairedCopy, verseCountNote, type ReferenceProblem } from "@/lib/references";
+import { notify } from "@/lib/server/notify";
 
 /**
  * Study and plan generation: the one place Spindle calls the model, for the
@@ -98,21 +99,41 @@ function stepUpLog(model: string, e: unknown) {
   console.warn(JSON.stringify({ event: "stepped_up", from: model, status }));
 }
 
-/** The SDK's errors, in the words the web app uses. */
-function apiFailure(e: unknown): Generated<never> | null {
+/** The SDK's errors, in the words the web app uses. Each one also goes to
+ *  Dave's phone (decision 0006); an empty credit balance loudest of all. */
+async function apiFailure(task: Task, e: unknown): Promise<Generated<never> | null> {
   if (e instanceof Anthropic.APIConnectionError) {
+    await notify({ title: `Spindle couldn't reach Anthropic (${task})`, message: e.message, tags: ["warning"] });
     return fail(502, "Couldn't reach the study service — check your connection.", "network");
   }
   if (e instanceof Anthropic.RateLimitError) {
+    await notify({ title: `Anthropic is rate-limiting Spindle (${task})`, message: e.message, tags: ["hourglass"] });
     return fail(429, "The study service is busy — wait a moment and tap again.", "rate_limit");
   }
   if (e instanceof Anthropic.APIError) {
     // The detail (an empty credit balance, a retired model name) is for the
-    // log, not for somebody in the middle of their scripture study.
+    // log and for Dave, not for somebody in the middle of their scripture study.
     console.error("model call failed", e.status, e.message);
+    const outOfCredit = /credit balance/i.test(e.message);
+    await notify(
+      outOfCredit
+        ? {
+            title: "Spindle is out of Anthropic credit",
+            message: "Studies and plans are failing until credit is added at console.anthropic.com → Billing.",
+            priority: 5,
+            tags: ["rotating_light"],
+          }
+        : { title: `Spindle ${task} failed: Anthropic error ${e.status ?? ""}`, message: e.message, priority: 4, tags: ["warning"] },
+    );
     return fail(502, "The study service is unavailable right now — please try again in a little while.", "api");
   }
   return null;
+}
+
+/** The last word when both tries failed for some other reason. */
+async function gaveUp(task: Task, message: string): Promise<Generated<never>> {
+  await notify({ title: `A Spindle ${task} failed`, message, tags: ["warning"] });
+  return fail(502, message);
 }
 
 function text(response: Anthropic.Message): string {
@@ -177,12 +198,12 @@ export async function generateStudy(
         stepUpLog(model, e);
         continue;
       }
-      const failure = apiFailure(e);
+      const failure = await apiFailure("study", e);
       if (failure) return failure;
       lastError = e instanceof Error ? e.message : "Unknown error.";
     }
   }
-  return fail(502, lastError || "The study service returned an empty response — tap again.");
+  return gaveUp("study", lastError || "The study service returned an empty response — tap again.");
 }
 
 export async function generatePlan(
@@ -252,10 +273,10 @@ export async function generatePlan(
         stepUpLog(model, e);
         continue;
       }
-      const failure = apiFailure(e);
+      const failure = await apiFailure("plan", e);
       if (failure) return failure;
       lastError = e instanceof Error ? e.message : "Unknown error.";
     }
   }
-  return fail(502, lastError || "Couldn't create that plan — tap again.");
+  return gaveUp("plan", lastError || "Couldn't create that plan — tap again.");
 }

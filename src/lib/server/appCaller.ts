@@ -4,6 +4,7 @@ import { z } from "zod";
 import { AttestationError, verifyAssertion } from "@/lib/server/appAttest";
 import { appId, appRoutesConfigured, findKey, spendKey } from "@/lib/server/appDb";
 import type { ReaderProfile } from "@/lib/server/prompt";
+import { notify } from "@/lib/server/notify";
 
 export function err(status: number, message: string, type?: string) {
   return NextResponse.json({ error: { message, type: type ?? "error" } }, { status });
@@ -36,7 +37,7 @@ export function readerProfile(profile: z.infer<typeof ProfileSchema>): ReaderPro
  */
 export async function admit(
   request: Request,
-  kind: "study" | "plan",
+  kind: "study" | "plan" | "feedback",
   hourlyLimit: number,
   limitMessage: string,
 ): Promise<{ body: Buffer } | { refuse: NextResponse }> {
@@ -63,6 +64,7 @@ export async function admit(
   } catch (e) {
     if (e instanceof AttestationError) return { refuse: err(401, NOT_RECOGNISED, "attestation") };
     console.error("app admit failed", e);
+    await notify({ title: "Spindle: couldn't check an iPhone request", message: String(e), priority: 4, tags: ["warning"] });
     return { refuse: err(500, "Couldn't check this request — try again.") };
   }
   return { body };

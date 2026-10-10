@@ -94,3 +94,17 @@ app is unaffected.
    Root CA*, and check its SHA-256 fingerprint matches the certificate in
    `src/lib/server/appAttest.ts` (`node -e` with `X509Certificate(...).fingerprint256`
    prints it). The session that wrote it could not reach apple.com.
+
+## 7. Alerts to your phone, and feedback from the app (~5 min)
+
+Decision `0006`. The server pushes alerts to your iPhone for failures, running out of
+Anthropic credit, new installs and feedback.
+
+1. **Supabase → SQL editor:** run `supabase/migrations/0006_feedback.sql`.
+2. **iPhone:** install **ntfy** from the App Store. Tap **+**, enter the topic name, and
+   subscribe. The topic is the `NTFY_TOPIC` value in Vercel. Leave the server as ntfy.sh.
+3. **Vercel → Settings → Environment Variables:** `NTFY_TOPIC` must be set, then redeploy.
+   Anyone who knows the topic name can read the alerts, so keep it long and random.
+
+To read every piece of feedback ever sent, in the SQL editor:
+`select created_at, message from public.app_feedback order by created_at desc;`
