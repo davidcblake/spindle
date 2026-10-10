@@ -374,3 +374,12 @@ html, body {
   .sp-section { break-inside: avoid; }
   .sp-plate { box-shadow: none; }
 }
+
+/* ---------- privacy page ---------- */
+.sp-privacy h2 {
+  font-family: var(--font-sora), sans-serif; font-size: 15px; font-weight: 700;
+  color: var(--blue-deep); margin: 24px 0 8px;
+}
+.sp-privacy ul { padding-left: 20px; margin: 0 0 12px; }
+.sp-privacy li, .sp-privacy p { font-size: 15px; line-height: 1.6; color: var(--ink); margin: 0 0 8px; }
+.sp-privacy a { color: var(--blue); }
