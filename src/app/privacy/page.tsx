@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   description: "What Spindle keeps, where it keeps it, and who else sees it.",
 };
 
-/** Who to write to about privacy. Dave's to fill in before this page is
- *  linked from the App Store. */
-const CONTACT = "CONTACT-EMAIL-TO-ADD";
+/** Who to write to about privacy. Dave's own address for now; a privacy@
+ *  address on Spindle's own domain can replace it later. */
+const CONTACT = "daveblake1@gmail.com";
 
-const UPDATED = "October 8, 2026";
+const UPDATED = "October 10, 2026";
 
 /**
  * Spindle's privacy policy, for the website and the iPhone app (the App
