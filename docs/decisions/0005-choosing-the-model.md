@@ -20,6 +20,7 @@ looked at whether its studies are good enough.
 | `SPINDLE_STUDY_MODEL` | the model that prepares studies |
 | `SPINDLE_PLAN_MODEL` | the model that prepares plans |
 | `ANTHROPIC_MODEL` | both, where the two above are unset (what it always meant) |
+| `SPINDLE_STEP_UP_MODEL` | what a failed first try steps up to (default `claude-sonnet-5-5`) |
 | `SPINDLE_STUDY_EFFORT`, `SPINDLE_PLAN_EFFORT` | how hard it thinks: `low`, `medium` (default), `high`, `xhigh`, `max` |
 
 Changing one is: Vercel → Settings → Environment Variables → edit → Redeploy. No code.
@@ -28,12 +29,32 @@ Every caller — the website and the iPhone — goes through `lib/server/generat
 setting changes both. Each generation logs one line in Vercel's logs naming the model and
 the tokens in and out, which is what the bill is made of.
 
-**The default is `claude-haiku-5-5`, for both studies and plans** — Dave's decision on
-2026-10-10, after the first plan on Claude Sonnet 5 cost about 6¢. It was `claude-sonnet-5`
-until then. Any Vercel setting above still overrides it, so going back is one setting:
-`ANTHROPIC_MODEL` = `claude-sonnet-5`, then redeploy.
+**By default Spindle picks the model per request** — Dave's decision on 2026-10-10, after
+the first plan on Claude Sonnet 5 cost about 6¢:
 
-## What to watch, now that it is Haiku 5.5
+| Request | First try | If it fails |
+|---|---|---|
+| a study | Claude Haiku 5.5 | Claude Sonnet 5.5 |
+| a plan about talks, speakers or conference | Claude Sonnet 5.5 | — |
+| any other plan | Claude Haiku 5.5 | Claude Sonnet 5.5 |
+
+"Fails" means cut off, declined, the wrong shape, or the model service erroring; a broken
+connection is not retried, since the next model would hit it too. "About talks" is a
+deliberately generous keyword test (`isAboutTalks` in `lib/server/models.ts`): a scripture
+plan caught by mistake costs a few cents more, a talk plan missed risks an invented title.
+
+**Why not an AI router** that reads each request and picks a model: Spindle has two kinds of
+request, not hundreds, and a router would add a second call — delay and cost — to every
+one, to make a choice simple rules make instantly.
+
+**Why the step-up cannot catch everything:** a model that confidently invents a talk title
+returns a perfectly shaped answer, and no check of shape notices. That risk is met by
+putting the stronger model on talk-heavy plans, and by people reading.
+
+Any Vercel setting above still overrides the choice: a task's own setting is always tried
+first, and `SPINDLE_STEP_UP_MODEL` changes what a failure steps up to.
+
+## What to watch
 
 Price is not the only thing a study has to get right. The General Conference section asks
 the model to cite talks it is confident exist, and smaller models misremember more. A

@@ -4,14 +4,16 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { StudySchema, type Study } from "@/lib/study";
 import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
-import { effortFor, modelFor, type Task } from "@/lib/server/models";
+import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models";
 
 /**
  * Study and plan generation: the one place Spindle calls the model, for the
  * website's routes and the iPhone's alike.
  *
- * Which model, and how hard it thinks, is a setting per task
- * (`lib/server/models.ts`, decision 0005).
+ * Which model prepares each request is chosen in `lib/server/models.ts`
+ * (decision 0005). Each request gets two tries: the first on the chosen model,
+ * the second on the step-up model when the first failed — cut off, declined,
+ * the wrong shape, or the model service itself erroring.
  */
 
 export type Generated<T> =
@@ -25,11 +27,25 @@ function client() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 }
 
-/** Model and effort for one task, as the request expects them. */
-function choose(task: Task) {
-  const model = modelFor(task);
+/** The model for each of the two tries. Without a step-up model, the second
+ *  try is the first model again, as it always was. */
+function tries(route: Route): [string, string] {
+  return [route.first, route.stepUp ?? route.first];
+}
+
+/** `output_config` for one try, leaving out effort where the model refuses it. */
+function outputConfig<F>(task: Task, model: string, format: F) {
   const effort = effortFor(task, model);
-  return { model, effort };
+  return { format, ...(effort ? { effort } : {}) };
+}
+
+/**
+ * Whether an error from the model service is worth trying again on the
+ * step-up model: the cheaper model overloaded, rate-limited or unavailable.
+ * Not a broken connection, which the next model would hit as well.
+ */
+function worthSteppingUp(e: unknown): boolean {
+  return e instanceof Anthropic.APIError && !(e instanceof Anthropic.APIConnectionError);
 }
 
 /**
@@ -37,17 +53,24 @@ function choose(task: Task) {
  * went in and out. That is what the bill is made of, so it is what a decision
  * to change models gets measured against.
  */
-function logUsage(task: Task, model: string, response: Anthropic.Message) {
+function logUsage(task: Task, model: string, attempt: number, response: Anthropic.Message) {
   console.info(
     JSON.stringify({
       event: "generated",
       task,
       model,
+      attempt: attempt + 1,
       stop: response.stop_reason,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
     }),
   );
+}
+
+/** A line in the log when the first model's error sends a request up. */
+function stepUpLog(model: string, e: unknown) {
+  const status = e instanceof Anthropic.APIError ? e.status : undefined;
+  console.warn(JSON.stringify({ event: "stepped_up", from: model, status }));
 }
 
 /** The SDK's errors, in the words the web app uses. */
@@ -80,9 +103,10 @@ export async function generateStudy(
   profile: ReaderProfile | null,
 ): Promise<Generated<Study>> {
   const anthropic = client();
-  const { model, effort } = choose("study");
+  const models = tries(routeFor("study"));
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
+    const model = models[attempt];
     try {
       // Streamed so a long generation keeps the connection alive.
       const stream = anthropic.messages.stream({
@@ -90,10 +114,10 @@ export async function generateStudy(
         max_tokens: 4096,
         system: buildSystemPrompt(profile),
         messages: [{ role: "user", content: `Prepare a complete study for: ${reference} (${volumeName}).` }],
-        output_config: { format: zodOutputFormat(StudySchema), ...(effort ? { effort } : {}) },
+        output_config: outputConfig("study", model, zodOutputFormat(StudySchema)),
       });
       const response = await stream.finalMessage();
-      logUsage("study", model, response);
+      logUsage("study", model, attempt, response);
       if (response.stop_reason === "max_tokens") {
         lastError = "The study was cut off — try fewer chapters, or tap again.";
         continue;
@@ -113,6 +137,10 @@ export async function generateStudy(
       if (validated.success) return { ok: true, value: validated.data };
       lastError = "The study came back in an unexpected shape.";
     } catch (e) {
+      if (attempt === 0 && models[1] !== model && worthSteppingUp(e)) {
+        stepUpLog(model, e);
+        continue;
+      }
       const failure = apiFailure(e);
       if (failure) return failure;
       lastError = e instanceof Error ? e.message : "Unknown error.";
@@ -126,19 +154,20 @@ export async function generatePlan(
   profile: ReaderProfile | null,
 ): Promise<Generated<GeneratedPlan>> {
   const anthropic = client();
-  const { model, effort } = choose("plan");
+  const models = tries(routeFor("plan", request));
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
+    const model = models[attempt];
     try {
       const stream = anthropic.messages.stream({
         model,
         max_tokens: 8192,
         system: buildPlanPrompt(profile),
         messages: [{ role: "user", content: `Create a study plan for this request: ${request}` }],
-        output_config: { format: zodOutputFormat(PlanSchema), ...(effort ? { effort } : {}) },
+        output_config: outputConfig("plan", model, zodOutputFormat(PlanSchema)),
       });
       const response = await stream.finalMessage();
-      logUsage("plan", model, response);
+      logUsage("plan", model, attempt, response);
       if (response.stop_reason === "max_tokens") {
         lastError = "The plan came out too long — try describing a narrower topic.";
         continue;
@@ -174,6 +203,10 @@ export async function generatePlan(
       }
       lastError = "The plan came back in an unexpected shape — tap again.";
     } catch (e) {
+      if (attempt === 0 && models[1] !== model && worthSteppingUp(e)) {
+        stepUpLog(model, e);
+        continue;
+      }
       const failure = apiFailure(e);
       if (failure) return failure;
       lastError = e instanceof Error ? e.message : "Unknown error.";
