@@ -17,9 +17,10 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
 const EFFORTS: readonly Effort[] = ["low", "medium", "high", "xhigh", "max"];
 
-/** What Spindle used before models became a setting. Changing the default is
- *  a decision, recorded in decision 0005, not a side effect. */
-export const DEFAULT_MODEL = "claude-sonnet-5";
+/** Claude Haiku 5.5, about a twentieth of Claude Sonnet 5's price. Dave's
+ *  choice on 2026-10-10, recorded in decision 0005; a Vercel setting still
+ *  overrides it per task. */
+export const DEFAULT_MODEL = "claude-haiku-5-5";
 
 /** Medium on both, as the routes have always asked for: a study's depth comes
  *  from its eleven-section structure, not from a long think. */

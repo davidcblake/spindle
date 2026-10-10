@@ -28,15 +28,19 @@ Every caller — the website and the iPhone — goes through `lib/server/generat
 setting changes both. Each generation logs one line in Vercel's logs naming the model and
 the tokens in and out, which is what the bill is made of.
 
-**The default stays `claude-sonnet-5`.** Switching to a cheaper model is a quality decision,
-not a code decision, and it is Dave's: try it, read the studies, keep it or change it back.
+**The default is `claude-haiku-5-5`, for both studies and plans** — Dave's decision on
+2026-10-10, after the first plan on Claude Sonnet 5 cost about 6¢. It was `claude-sonnet-5`
+until then. Any Vercel setting above still overrides it, so going back is one setting:
+`ANTHROPIC_MODEL` = `claude-sonnet-5`, then redeploy.
 
-## Why not pick Haiku 5.5 now
+## What to watch, now that it is Haiku 5.5
 
 Price is not the only thing a study has to get right. The General Conference section asks
 the model to cite talks it is confident exist, and smaller models misremember more. A
 wrong talk title in a study about faith is worse than a slow or costly one. That has to be
-read, not assumed — on the same passages, side by side.
+read, not assumed: compare Haiku's studies and plans with the Sonnet ones already in the
+journal, and check conference talk titles against Gospel Library. If they slip, set
+`SPINDLE_STUDY_MODEL` (or `SPINDLE_PLAN_MODEL`) back to `claude-sonnet-5` for just that task.
 
 ## Why per task
 
@@ -51,13 +55,12 @@ different models, and it costs nothing to be able to say so.
 - **Price tables in code.** The logged token counts and Anthropic's price page are enough,
   and prices in code go out of date silently.
 
-## How to try a cheaper model
+## How to change it
 
-1. In Vercel set `SPINDLE_STUDY_MODEL` = `claude-haiku-5-5`, and redeploy.
-2. Prepare three or four passages you know well, on the phone or the web.
-3. Compare them in the Journal with studies of the same passages prepared before the
-   switch. Check especially the conference talks.
-4. Keep it, or delete the setting and redeploy to go back.
+1. Vercel → spindle → Settings → Environment Variables.
+2. Add `ANTHROPIC_MODEL` (both tasks), or `SPINDLE_STUDY_MODEL` / `SPINDLE_PLAN_MODEL`
+   (one task), with the model's ID — `claude-sonnet-5` to go back.
+3. Redeploy.
 
 ## Revisit when
 
