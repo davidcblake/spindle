@@ -4,15 +4,14 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { StudySchema, type Study } from "@/lib/study";
 import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
+import { effortFor, modelFor, type Task } from "@/lib/server/models";
 
 /**
- * Study and plan generation for the iPhone routes under /api/app.
+ * Study and plan generation: the one place Spindle calls the model, for the
+ * website's routes and the iPhone's alike.
  *
- * The same calls, prompts, retries and messages as the web routes
- * (`/api/study`, `/api/plan`). Those routes still carry their own copy: they
- * are live, and changing them is a separate, deliberate step rather than a
- * side effect of adding the iPhone's. Moving them onto this file is the
- * obvious follow-up, and when it happens there is one copy again.
+ * Which model, and how hard it thinks, is a setting per task
+ * (`lib/server/models.ts`, decision 0005).
  */
 
 export type Generated<T> =
@@ -26,8 +25,29 @@ function client() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 }
 
-function model() {
-  return process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+/** Model and effort for one task, as the request expects them. */
+function choose(task: Task) {
+  const model = modelFor(task);
+  const effort = effortFor(task, model);
+  return { model, effort };
+}
+
+/**
+ * One line per generation in Vercel's logs: which model, and how many tokens
+ * went in and out. That is what the bill is made of, so it is what a decision
+ * to change models gets measured against.
+ */
+function logUsage(task: Task, model: string, response: Anthropic.Message) {
+  console.info(
+    JSON.stringify({
+      event: "generated",
+      task,
+      model,
+      stop: response.stop_reason,
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    }),
+  );
 }
 
 /** The SDK's errors, in the words the web app uses. */
@@ -39,7 +59,10 @@ function apiFailure(e: unknown): Generated<never> | null {
     return fail(429, "The study service is busy — wait a moment and tap again.", "rate_limit");
   }
   if (e instanceof Anthropic.APIError) {
-    return fail(502, `The study service returned an error (${e.status ?? "unknown"}): ${e.message}`, "api");
+    // The detail (an empty credit balance, a retired model name) is for the
+    // log, not for somebody in the middle of their scripture study.
+    console.error("model call failed", e.status, e.message);
+    return fail(502, "The study service is unavailable right now — please try again in a little while.", "api");
   }
   return null;
 }
@@ -57,17 +80,20 @@ export async function generateStudy(
   profile: ReaderProfile | null,
 ): Promise<Generated<Study>> {
   const anthropic = client();
+  const { model, effort } = choose("study");
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
+      // Streamed so a long generation keeps the connection alive.
       const stream = anthropic.messages.stream({
-        model: model(),
+        model,
         max_tokens: 4096,
         system: buildSystemPrompt(profile),
         messages: [{ role: "user", content: `Prepare a complete study for: ${reference} (${volumeName}).` }],
-        output_config: { format: zodOutputFormat(StudySchema), effort: "medium" },
+        output_config: { format: zodOutputFormat(StudySchema), ...(effort ? { effort } : {}) },
       });
       const response = await stream.finalMessage();
+      logUsage("study", model, response);
       if (response.stop_reason === "max_tokens") {
         lastError = "The study was cut off — try fewer chapters, or tap again.";
         continue;
@@ -100,17 +126,19 @@ export async function generatePlan(
   profile: ReaderProfile | null,
 ): Promise<Generated<GeneratedPlan>> {
   const anthropic = client();
+  const { model, effort } = choose("plan");
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const stream = anthropic.messages.stream({
-        model: model(),
+        model,
         max_tokens: 8192,
         system: buildPlanPrompt(profile),
         messages: [{ role: "user", content: `Create a study plan for this request: ${request}` }],
-        output_config: { format: zodOutputFormat(PlanSchema), effort: "medium" },
+        output_config: { format: zodOutputFormat(PlanSchema), ...(effort ? { effort } : {}) },
       });
       const response = await stream.finalMessage();
+      logUsage("plan", model, response);
       if (response.stop_reason === "max_tokens") {
         lastError = "The plan came out too long — try describing a narrower topic.";
         continue;

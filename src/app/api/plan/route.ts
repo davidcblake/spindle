@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
-import { buildPlanPrompt, type ReaderProfile } from "@/lib/server/prompt";
+import type { ReaderProfile } from "@/lib/server/prompt";
+import { generatePlan } from "@/lib/server/generate";
 
 export const maxDuration = 60;
 
@@ -59,69 +57,11 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .maybeSingle<ReaderProfile>();
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-
-  let plan: GeneratedPlan | null = null;
-  let lastError = "";
-  for (let attempt = 0; attempt < 2 && !plan; attempt++) {
-    try {
-      // Stream so a long generation keeps the connection alive, and use
-      // medium effort — building a plan is recall + ordering, not deep
-      // reasoning, so full effort just burns latency toward the 60s ceiling.
-      const stream = anthropic.messages.stream({
-        model,
-        max_tokens: 8192,
-        system: buildPlanPrompt(profile ?? null),
-        messages: [
-          {
-            role: "user",
-            content: `Create a study plan for this request: ${parsed.data.request}`,
-          },
-        ],
-        output_config: { format: zodOutputFormat(PlanSchema), effort: "medium" },
-      });
-      const response = await stream.finalMessage();
-
-      if (response.stop_reason === "max_tokens") {
-        lastError = "The plan came out too long — try describing a narrower topic.";
-        continue;
-      }
-      if (response.stop_reason === "refusal") {
-        lastError = "That request couldn't be turned into a study plan — try rephrasing it around a gospel topic.";
-        continue;
-      }
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("");
-      let candidate: unknown;
-      try {
-        candidate = JSON.parse(text);
-      } catch {
-        lastError = "The plan came back incomplete — tap again, or try a narrower topic.";
-        continue;
-      }
-      const validated = PlanSchema.safeParse(candidate);
-      if (validated.success && validated.data.items.length > 0) {
-        plan = validated.data;
-      } else {
-        lastError = "The plan came back in an unexpected shape — tap again.";
-      }
-    } catch (e) {
-      if (e instanceof Anthropic.APIConnectionError) {
-        return err(502, "Couldn't reach the study service — check your connection.", "network");
-      }
-      if (e instanceof Anthropic.RateLimitError) {
-        return err(429, "The study service is busy — wait a moment and tap again.", "rate_limit");
-      }
-      if (e instanceof Anthropic.APIError) {
-        return err(502, `The study service returned an error (${e.status ?? "unknown"}): ${e.message}`, "api");
-      }
-      lastError = e instanceof Error ? e.message : "Unknown error.";
-    }
-  }
-  if (!plan) return err(502, lastError || "Couldn't create that plan — tap again.");
+  // Generate (lib/server/generate.ts: model per decision 0005, one retry,
+  // specific messages, items already capped to what is saved below).
+  const generated = await generatePlan(parsed.data.request, profile ?? null);
+  if (!generated.ok) return err(generated.status, generated.message, generated.type);
+  const plan = generated.value;
 
   // Persist plan, then items (cap at 60 regardless of what the model sent).
   const { data: planRow, error: planError } = await supabase
