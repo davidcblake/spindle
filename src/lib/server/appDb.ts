@@ -36,8 +36,10 @@ export const issueChallenge = (challenge: string) =>
 export const takeChallenge = (challenge: string) =>
   call<boolean>("app_take_challenge", { p_challenge: challenge });
 
-export const registerKey = (keyId: string, publicKeyPem: string) =>
-  call<void>("app_register_key", { p_key_id: keyId, p_public_key: publicKeyPem });
+/** True when the key is new, false when it was already registered. Until
+ *  migration 0006 is run the function returns nothing, which reads as false. */
+export const registerKey = async (keyId: string, publicKeyPem: string) =>
+  (await call<boolean | null>("app_register_key", { p_key_id: keyId, p_public_key: publicKeyPem })) === true;
 
 export async function findKey(keyId: string): Promise<{ public_key: string; counter: number } | null> {
   const rows = await call<{ public_key: string; counter: number }[]>("app_key", { p_key_id: keyId });
@@ -46,10 +48,15 @@ export async function findKey(keyId: string): Promise<{ public_key: string; coun
 
 export type KeySpend = "ok" | "unknown" | "replay" | "limit";
 
-export const spendKey = (keyId: string, counter: number, kind: "study" | "plan", hourlyLimit: number) =>
+export const spendKey = (keyId: string, counter: number, kind: "study" | "plan" | "feedback", hourlyLimit: number) =>
   call<KeySpend>("app_use_key", {
     p_key_id: keyId,
     p_counter: counter,
     p_kind: kind,
     p_hourly_limit: hourlyLimit,
   });
+
+/** Feedback from an iPhone, kept so nothing sent is lost if an alert is
+ *  missed (migration 0006). */
+export const saveFeedback = (keyId: string, message: string) =>
+  call<void>("app_save_feedback", { p_key_id: keyId, p_message: message });

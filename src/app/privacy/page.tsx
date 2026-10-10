@@ -57,6 +57,12 @@ export default function PrivacyPage() {
             can be prepared in an hour. The key identifies a copy of the app, not a person, and is
             not linked to anything else about you.
           </li>
+          <li>
+            <strong>Feedback you send</strong> from Settings is kept on Spindle&apos;s server
+            and sent to the developer&apos;s phone through ntfy.sh. It is linked to the same App
+            Attest key, not to your name. Don&apos;t include anything you would rather keep
+            private.
+          </li>
         </ul>
 
         <h2>The website</h2>
@@ -93,6 +99,10 @@ export default function PrivacyPage() {
           <li>
             <strong>Apple</strong> provides App Attest and iCloud, under Apple&apos;s own privacy
             policy.
+          </li>
+          <li>
+            <strong>ntfy.sh</strong> delivers feedback and error alerts to the developer&apos;s
+            phone. Error alerts contain no information about you.
           </li>
         </ul>
         <p>Nothing is sold, shared for advertising, or used to follow you across other apps.</p>

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AttestationError, verifyAttestation } from "@/lib/server/appAttest";
 import { appId, appRoutesConfigured, registerKey, takeChallenge } from "@/lib/server/appDb";
 import { err } from "@/lib/server/appCaller";
+import { notify } from "@/lib/server/notify";
 
 const RegisterSchema = z.object({
   keyId: z.string().min(1).max(200),
@@ -31,13 +32,22 @@ export async function POST(request: Request) {
       challenge: Buffer.from(challenge, "base64"),
       appId: appId(),
     });
-    await registerKey(keyId, publicKeyPem);
+    if (await registerKey(keyId, publicKeyPem)) {
+      // No accounts on the iPhone, so a new install is the nearest thing to
+      // a new user (decision 0006). Reinstalling counts again.
+      await notify({
+        title: "New Spindle iPhone",
+        message: "Someone just installed Spindle and set it up.",
+        tags: ["tada"],
+      });
+    }
   } catch (e) {
     if (e instanceof AttestationError) {
       console.warn("attestation refused", e.message);
       return err(401, "This iPhone couldn't prove it is running Spindle.", "attestation");
     }
     console.error("register failed", e);
+    await notify({ title: "Spindle: an iPhone couldn't register", message: String(e), priority: 4, tags: ["warning"] });
     return err(500, "Couldn't register this iPhone — try again.");
   }
   return new Response(null, { status: 204 });
