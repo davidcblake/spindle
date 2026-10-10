@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Generated iOS project (downloaded from CI, never committed)
 ios/
+
+# Standing test set reports (pnpm eval) — kept locally
+evals/results/

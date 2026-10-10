@@ -47,7 +47,10 @@ export async function POST(request: Request) {
     return err(400, e instanceof Error ? e.message : "Invalid selection.");
   }
 
-  const result = await generateStudy(reference, volumeName, readerProfile(parsed.data.profile));
+  const result = await generateStudy(reference, volumeName, readerProfile(parsed.data.profile), {
+    book: parsed.data.book ?? null,
+    chapters: parsed.data.chapters,
+  });
   if (!result.ok) return err(result.status, result.message, result.type);
   return NextResponse.json({ study: result.value });
 }

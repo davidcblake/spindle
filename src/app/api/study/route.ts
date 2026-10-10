@@ -71,7 +71,10 @@ export async function POST(request: Request) {
 
   // 5. Generate (lib/server/generate.ts: model per decision 0005, one retry
   //    on validation failure, specific messages).
-  const generated = await generateStudy(reference, volumeName, profile ?? null);
+  const generated = await generateStudy(reference, volumeName, profile ?? null, {
+    book: parsedBody.data.book,
+    chapters: parsedBody.data.chapters,
+  });
   if (!generated.ok) return err(generated.status, generated.message, generated.type);
   const study = generated.value;
 

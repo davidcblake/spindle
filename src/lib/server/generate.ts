@@ -5,6 +5,7 @@ import { StudySchema, type Study } from "@/lib/study";
 import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
 import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models";
+import { problemsIn, repairedCopy, verseCountNote, type ReferenceProblem } from "@/lib/references";
 
 /**
  * Study and plan generation: the one place Spindle calls the model, for the
@@ -14,6 +15,11 @@ import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models"
  * (decision 0005). Each request gets two tries: the first on the chosen model,
  * the second on the step-up model when the first failed — cut off, declined,
  * the wrong shape, or the model service itself erroring.
+ *
+ * Every scripture reference in what comes back is checked against the real
+ * verse counts (`lib/references.ts`). A first try that cites a verse that does
+ * not exist is sent up with a note of what was wrong; if the second still
+ * does, those references are cut back to the chapter or book, which exist.
  */
 
 export type Generated<T> =
@@ -67,6 +73,25 @@ function logUsage(task: Task, model: string, attempt: number, response: Anthropi
   );
 }
 
+/** What the second try is told when the first cited verses that don't exist. */
+function correctionNote(problems: ReferenceProblem[]): string {
+  const listed = [...new Set(problems.map((p) => p.written))].join(", ");
+  return `\n\nA previous draft cited scripture references that do not exist: ${listed}. Cite only chapters and verses that exist.`;
+}
+
+/** A line in the log whenever a draft cites references that don't exist. */
+function logProblems(task: Task, model: string, attempt: number, problems: ReferenceProblem[]) {
+  console.warn(
+    JSON.stringify({
+      event: "reference_problems",
+      task,
+      model,
+      attempt: attempt + 1,
+      references: problems.map((p) => p.written),
+    }),
+  );
+}
+
 /** A line in the log when the first model's error sends a request up. */
 function stepUpLog(model: string, e: unknown) {
   const status = e instanceof Anthropic.APIError ? e.status : undefined;
@@ -101,9 +126,13 @@ export async function generateStudy(
   reference: string,
   volumeName: string,
   profile: ReaderProfile | null,
+  passage: { book: string | null; chapters: number[] } = { book: null, chapters: [] },
 ): Promise<Generated<Study>> {
   const anthropic = client();
   const models = tries(routeFor("study"));
+  // Grounding: the model is told how long each chapter is before it writes.
+  const counts = verseCountNote(passage.book, passage.chapters);
+  let ask = `Prepare a complete study for: ${reference} (${volumeName}).${counts ? ` ${counts}` : ""}`;
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     const model = models[attempt];
@@ -113,7 +142,7 @@ export async function generateStudy(
         model,
         max_tokens: 4096,
         system: buildSystemPrompt(profile),
-        messages: [{ role: "user", content: `Prepare a complete study for: ${reference} (${volumeName}).` }],
+        messages: [{ role: "user", content: ask }],
         output_config: outputConfig("study", model, zodOutputFormat(StudySchema)),
       });
       const response = await stream.finalMessage();
@@ -134,7 +163,14 @@ export async function generateStudy(
         continue;
       }
       const validated = StudySchema.safeParse(candidate);
-      if (validated.success) return { ok: true, value: validated.data };
+      if (validated.success) {
+        const problems = problemsIn(validated.data);
+        if (problems.length === 0) return { ok: true, value: validated.data };
+        logProblems("study", model, attempt, problems);
+        if (attempt === 1) return { ok: true, value: repairedCopy(validated.data) };
+        ask += correctionNote(problems);
+        continue;
+      }
       lastError = "The study came back in an unexpected shape.";
     } catch (e) {
       if (attempt === 0 && models[1] !== model && worthSteppingUp(e)) {
@@ -155,6 +191,7 @@ export async function generatePlan(
 ): Promise<Generated<GeneratedPlan>> {
   const anthropic = client();
   const models = tries(routeFor("plan", request));
+  let ask = `Create a study plan for this request: ${request}`;
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     const model = models[attempt];
@@ -163,7 +200,7 @@ export async function generatePlan(
         model,
         max_tokens: 8192,
         system: buildPlanPrompt(profile),
-        messages: [{ role: "user", content: `Create a study plan for this request: ${request}` }],
+        messages: [{ role: "user", content: ask }],
         output_config: outputConfig("plan", model, zodOutputFormat(PlanSchema)),
       });
       const response = await stream.finalMessage();
@@ -185,9 +222,17 @@ export async function generatePlan(
       }
       const validated = PlanSchema.safeParse(candidate);
       if (validated.success && validated.data.items.length > 0) {
+        const problems = problemsIn(validated.data);
+        if (problems.length > 0) {
+          logProblems("plan", model, attempt, problems);
+          if (attempt === 0) {
+            ask += correctionNote(problems);
+            continue;
+          }
+        }
         // The web route caps what it saves at 60 items and these lengths; the
         // phone saves what it is sent, so the cap moves here.
-        const plan = validated.data;
+        const plan = problems.length > 0 ? repairedCopy(validated.data) : validated.data;
         return {
           ok: true,
           value: {
