@@ -108,3 +108,16 @@ Anthropic credit, new installs and feedback.
 
 To read every piece of feedback ever sent, in the SQL editor:
 `select created_at, message from public.app_feedback order by created_at desc;`
+
+## 8. Stackd's meal photos (~3 min)
+
+Stackd, the health tracker, reads meal photos through this server (decision 0007). It
+reuses the App Attest settings from §6, so there are no new secrets.
+
+1. **Supabase → SQL editor:** paste and run `supabase/migrations/0007_meal_photos.sql`.
+2. **Vercel:** redeploy (or merge the pull request, which deploys on its own).
+3. *Optional:* `STACKD_MEAL_MODEL` in Vercel's environment variables picks the model.
+   Unset means Claude Opus 5.5; `claude-haiku-5-5` is much cheaper and a little less accurate.
+
+**You know it worked when** a meal photo in Stackd comes back with an estimate instead of
+"Reading meal photos isn't set up on the server yet."

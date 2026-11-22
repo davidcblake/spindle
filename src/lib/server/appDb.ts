@@ -19,9 +19,19 @@ export function appRoutesConfigured(): boolean {
   return Boolean(process.env.APP_SERVER_SECRET && process.env.APPLE_TEAM_ID);
 }
 
-/** The App ID App Attest signs for. */
-export function appId(): string {
-  return `${process.env.APPLE_TEAM_ID}.com.wpv.spindle`;
+/** The iPhone apps that may call this server: Spindle, and Stackd for reading
+ *  meal photos (decision 0007). */
+export type AppName = "spindle" | "stackd";
+
+const BUNDLE_IDS: Record<AppName, string> = {
+  spindle: "com.wpv.spindle",
+  stackd: "com.wpv.stackd",
+};
+
+/** The App ID App Attest signs for. A key attested for one app fails every
+ *  check made for the other, so neither can spend the other's allowance. */
+export function appId(app: AppName = "spindle"): string {
+  return `${process.env.APPLE_TEAM_ID}.${BUNDLE_IDS[app]}`;
 }
 
 async function call<T>(name: string, args: Record<string, unknown>): Promise<T> {
@@ -48,7 +58,9 @@ export async function findKey(keyId: string): Promise<{ public_key: string; coun
 
 export type KeySpend = "ok" | "unknown" | "replay" | "limit";
 
-export const spendKey = (keyId: string, counter: number, kind: "study" | "plan" | "feedback", hourlyLimit: number) =>
+export type UseKind = "study" | "plan" | "feedback" | "meal";
+
+export const spendKey = (keyId: string, counter: number, kind: UseKind, hourlyLimit: number) =>
   call<KeySpend>("app_use_key", {
     p_key_id: keyId,
     p_counter: counter,
