@@ -2,7 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AttestationError, verifyAssertion } from "@/lib/server/appAttest";
-import { appId, appRoutesConfigured, findKey, spendKey } from "@/lib/server/appDb";
+import { appId, appRoutesConfigured, findKey, spendKey, type AppName, type UseKind } from "@/lib/server/appDb";
 import type { ReaderProfile } from "@/lib/server/prompt";
 import { notify } from "@/lib/server/notify";
 
@@ -37,12 +37,14 @@ export function readerProfile(profile: z.infer<typeof ProfileSchema>): ReaderPro
  */
 export async function admit(
   request: Request,
-  kind: "study" | "plan" | "feedback",
+  kind: UseKind,
   hourlyLimit: number,
   limitMessage: string,
+  app: AppName = "spindle",
 ): Promise<{ body: Buffer } | { refuse: NextResponse }> {
   if (!appRoutesConfigured()) {
-    return { refuse: err(503, "Preparing studies from the iPhone isn't set up on the server yet.", "unavailable") };
+    const what = app === "stackd" ? "Reading meal photos" : "Preparing studies from the iPhone";
+    return { refuse: err(503, `${what} isn't set up on the server yet.`, "unavailable") };
   }
   const keyId = request.headers.get("x-spindle-key-id");
   const assertion = request.headers.get("x-spindle-assertion");
@@ -56,7 +58,7 @@ export async function admit(
       assertion: Buffer.from(assertion, "base64"),
       clientData: body,
       publicKeyPem: key.public_key,
-      appId: appId(),
+      appId: appId(app),
     });
     const use = await spendKey(keyId, counter, kind, hourlyLimit);
     if (use === "limit") return { refuse: err(429, limitMessage, "rate_limit") };
