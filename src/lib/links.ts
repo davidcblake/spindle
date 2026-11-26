@@ -155,8 +155,9 @@ export function segmentReferences(text: string): TextSegment[] {
   return segments.length > 0 ? segments : [{ text }];
 }
 
-/** Gospel Library search link for a conference talk (never guess talk URLs —
- *  a search that lands beats a fabricated link that 404s). */
+/** Gospel Library search link for a conference talk the list of real talks
+ *  did not supply an address for (studies saved before it existed). Never
+ *  guess a talk's address: only `lib/talks.ts` gives one. */
 export function talkSearchUrl(speaker: string, talk: string): string {
   const query = encodeURIComponent(`${talk} ${speaker}`);
   return `https://www.churchofjesuschrist.org/search?lang=eng&query=${query}&facet=general-conference`;

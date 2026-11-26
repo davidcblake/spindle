@@ -1,7 +1,8 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { StudySchema, type Study } from "@/lib/study";
+import { StudyDraftSchema, type Study } from "@/lib/study";
+import { checkTalks, talkCorrectionNote, type CitedTalk } from "@/lib/talks";
 import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
 import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models";
@@ -21,6 +22,12 @@ import { notify } from "@/lib/server/notify";
  * verse counts (`lib/references.ts`). A first try that cites a verse that does
  * not exist is sent up with a note of what was wrong; if the second still
  * does, those references are cut back to the chapter or book, which exist.
+ *
+ * Every conference talk in a study is checked against the list of real talks
+ * (`lib/talks.ts`). A real one gets its true conference and its own address;
+ * a first try that cites one that is not real is sent up with a note naming
+ * it and listing that speaker's real talks; if the second still does, that
+ * talk is left out. A talk that does not exist never reaches anyone.
  */
 
 export type Generated<T> =
@@ -89,6 +96,19 @@ function logProblems(task: Task, model: string, attempt: number, problems: Refer
       model,
       attempt: attempt + 1,
       references: problems.map((p) => p.written),
+    }),
+  );
+}
+
+/** A line in the log whenever a draft cites talks that are not real. */
+function logTalkProblems(model: string, attempt: number, unreal: CitedTalk[]) {
+  console.warn(
+    JSON.stringify({
+      event: "talk_problems",
+      task: "study",
+      model,
+      attempt: attempt + 1,
+      talks: unreal.map((t) => `${t.speaker} — "${t.talk}" (${t.session})`),
     }),
   );
 }
@@ -164,7 +184,7 @@ export async function generateStudy(
         max_tokens: 4096,
         system: buildSystemPrompt(profile),
         messages: [{ role: "user", content: ask }],
-        output_config: outputConfig("study", model, zodOutputFormat(StudySchema)),
+        output_config: outputConfig("study", model, zodOutputFormat(StudyDraftSchema)),
       });
       const response = await stream.finalMessage();
       logUsage("study", model, attempt, response);
@@ -183,14 +203,21 @@ export async function generateStudy(
         lastError = "The study came back incomplete — try fewer chapters, or tap again.";
         continue;
       }
-      const validated = StudySchema.safeParse(candidate);
+      const validated = StudyDraftSchema.safeParse(candidate);
       if (validated.success) {
         const problems = problemsIn(validated.data);
-        if (problems.length === 0) return { ok: true, value: validated.data };
-        logProblems("study", model, attempt, problems);
-        if (attempt === 1) return { ok: true, value: repairedCopy(validated.data) };
-        ask += correctionNote(problems);
-        continue;
+        const { real, unreal } = checkTalks(validated.data.conference);
+        if (problems.length > 0) logProblems("study", model, attempt, problems);
+        if (unreal.length > 0) logTalkProblems(model, attempt, unreal);
+        if (attempt === 0 && (problems.length > 0 || unreal.length > 0)) {
+          if (problems.length > 0) ask += correctionNote(problems);
+          if (unreal.length > 0) ask += talkCorrectionNote(unreal);
+          continue;
+        }
+        // Real talks only, each with its own address; references that still
+        // do not exist cut back to ones that do.
+        const study: Study = { ...validated.data, conference: real };
+        return { ok: true, value: problems.length > 0 ? repairedCopy(study) : study };
       }
       lastError = "The study came back in an unexpected shape.";
     } catch (e) {

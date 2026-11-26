@@ -2,9 +2,19 @@
 
 **Written 2026-10-10.** Dave then asked for as much of option C as can be built without
 permission. **Built:** option A (`lib/references.ts`, `lib/verseCounts.ts`), C's grounding
-with verse counts, and the standing test set (`pnpm eval`, `evals/`). **Waiting:** option B
-and C's talk grounding, both on permission (below), and a "report a problem" button, on
-where alerts should go. Read this before building anything that touches how studies cite
+with verse counts, and the standing test set (`pnpm eval`, `evals/`).
+
+**2026-11-26: option B built, on Dave's go-ahead** after phantom talks reached his phone
+("The Atonement and Repentance", "Christ and the New Covenant"). `src/lib/talks.json` lists
+every general conference talk in Gospel Library since April 1971 (4,131) — speaker, title,
+conference and address, **facts only, no talk text** — read from the conference index pages
+by `scripts/update-talks.mjs`; re-run it after each conference. `lib/talks.ts` checks every
+study's talks against it in `generate.ts`: a real talk gets its true conference and a direct
+link; one that is not real sends the study to the step-up model with that speaker's real
+talks listed, and is dropped if the second try still cites it. Plans are not checked yet.
+
+**Waiting:** C's talk grounding — which talks *cite* the passage — needs talk text or BYU's
+index, so still on permission (below); and a "report a problem" button. Read this before building anything that touches how studies cite
 scripture or conference talks.
 
 ## The risk, from highest to lowest
