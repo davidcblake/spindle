@@ -168,7 +168,7 @@ export default function StudyView({
                 <strong>
                   <a
                     className="sp-ref-link"
-                    href={talkSearchUrl(t.speaker, t.talk)}
+                    href={t.url ?? talkSearchUrl(t.speaker, t.talk)}
                     target="_blank"
                     rel="noopener"
                   >

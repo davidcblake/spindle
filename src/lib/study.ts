@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+/** A general conference talk as the model cites it. */
+const CitedTalkSchema = z.object({
+  speaker: z.string(),
+  talk: z.string(),
+  session: z.string(),
+  point: z.string(),
+});
+
 /** The ten-section study contract between the API and the UI (PRD §6.2). */
 export const StudySchema = z.object({
   placement: z.string(),
@@ -14,14 +22,10 @@ export const StudySchema = z.object({
     z.object({ pattern: z.string(), meaning: z.string(), echoes: z.string() }),
   ),
   christ: z.string(),
-  conference: z.array(
-    z.object({
-      speaker: z.string(),
-      talk: z.string(),
-      session: z.string(),
-      point: z.string(),
-    }),
-  ),
+  // `url` is the talk's own Gospel Library address, added by the server from
+  // the list of real talks (`lib/talks.ts`) — never written by the model.
+  // Studies saved before it existed have none, and link to a search instead.
+  conference: z.array(CitedTalkSchema.extend({ url: z.string().optional() })),
   crossRefs: z.array(z.object({ ref: z.string(), note: z.string() })),
   reflection: z.array(z.string()),
   invitation: z.string(),
@@ -29,6 +33,10 @@ export const StudySchema = z.object({
 });
 
 export type Study = z.infer<typeof StudySchema>;
+
+/** What the model is asked for: a study without talk addresses, which only
+ *  the server adds. */
+export const StudyDraftSchema = StudySchema.extend({ conference: z.array(CitedTalkSchema) });
 
 export interface EntryNote {
   id: string;

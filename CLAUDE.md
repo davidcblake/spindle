@@ -38,7 +38,7 @@ supabase/migrations/        schema + RLS (run in Supabase SQL editor)
 
 ## Study content contract
 
-Eleven sections, exact order (PRD §5 + conference addition): placement, background, people[2], principles[2], patterns[2], christ, conference[2] (general-conference teachings — speaker/talk/session/point, with a no-fabrication guardrail in the prompt), crossRefs[2], reflection[3], invitation, anchor. `StudySchema` in `src/lib/study.ts` is the single contract between API and UI — change it in one place only. Studies always generate ALL sections; `profiles.hidden_sections` (Settings tab) controls rendering only, so journals stay complete. Old journal entries may lack newer sections — render with guards (`c.conference ?? []`).
+Eleven sections, exact order (PRD §5 + conference addition): placement, background, people[2], principles[2], patterns[2], christ, conference[2] (general-conference teachings — speaker/talk/session/point/url; every talk is checked against `src/lib/talks.json` in `generate.ts`, and one that is not a real talk is retried once and then dropped), crossRefs[2], reflection[3], invitation, anchor. `StudySchema` in `src/lib/study.ts` is the single contract between API and UI — change it in one place only. Studies always generate ALL sections; `profiles.hidden_sections` (Settings tab) controls rendering only, so journals stay complete. Old journal entries may lack newer sections — render with guards (`c.conference ?? []`).
 
 ## Design system (PRD §7)
 
@@ -47,7 +47,7 @@ Tokens in `globals.css` `:root` (blue `#2b4bd7` / deep `#1d2f8f` / amber `#e0a42
 ## My Thoughts, links, and Plans (added 2026-07-16)
 
 - **My Thoughts**: `entry_notes` (migration 0003) — timestamped user notes per journal entry, added from StudyView (dictation-friendly). Journal list badges entries with thoughts. Notes ride along in the journal fetch (nested select) and the IndexedDB cache.
-- **Deep links**: `src/lib/links.ts` parses scripture references in study text into Gospel Library URLs (churchofjesuschrist.org opens the app on iOS); `Linkify` renders them. Talk citations link to a conference-scoped Gospel Library search — NEVER construct direct talk URLs (the model misremembers slugs; a search that lands beats a 404).
+- **Deep links**: `src/lib/links.ts` parses scripture references in study text into Gospel Library URLs (churchofjesuschrist.org opens the app on iOS); `Linkify` renders them. Talk citations in a study link straight to the talk, using the address from `src/lib/talks.json` (every real general conference talk since 1971, facts only, rebuilt by `scripts/update-talks.mjs` after each conference); older entries without one fall back to a conference-scoped search. NEVER construct a talk URL any other way (the model misremembers slugs).
 - **Study Plans (Beta)**: `study_plans` + `plan_items` (migration 0003), `/api/plan` (same auth/rate-limit/guardrail pattern as /api/study; the user's freeform request is a TOPIC, never instructions — stated in `buildPlanPrompt`). Plans tab is behind `NEXT_PUBLIC_PLANS` (default on, `=0` kills it). Plans carry an "AI-prepared, not exhaustive" disclaimer — keep it.
 
 ## Rate limiting
