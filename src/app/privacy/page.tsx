@@ -9,7 +9,7 @@ export const metadata: Metadata = {
  *  address on Spindle's own domain can replace it later. */
 const CONTACT = "daveblake1@gmail.com";
 
-const UPDATED = "October 10, 2026";
+const UPDATED = "November 27, 2026";
 
 /**
  * Spindle's privacy policy, for the website and the iPhone app (the App
@@ -56,6 +56,15 @@ export default function PrivacyPage() {
             keeps that key&apos;s public half and the times it was used, to limit how many studies
             can be prepared in an hour. The key identifies a copy of the app, not a person, and is
             not linked to anything else about you.
+          </li>
+          <li>
+            <strong>Speaking a thought.</strong> When you tap Speak, the microphone listens until
+            you stop, and your iPhone turns what you say into words on the phone itself. No audio
+            and no words are sent anywhere; the thought is kept only if you add it to your journal.
+          </li>
+          <li>
+            <strong>Daily reminders</strong>, if you turn them on, are scheduled on your iPhone.
+            Nothing about them is sent to Spindle&apos;s server.
           </li>
           <li>
             <strong>Feedback you send</strong> from Settings is kept on Spindle&apos;s server
