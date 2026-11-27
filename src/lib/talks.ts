@@ -120,3 +120,42 @@ export function talkCorrectionNote(unreal: CitedTalk[], perSpeaker = 60): string
     (real ? `\n${real}` : "")
   );
 }
+
+// A talk in a plan's `reference`, as the plan prompt asks for it:
+// Speaker — "Title" (Session). The same shape `lib/links.ts` reads.
+const PLAN_TALK_RE = /^(.+?)\s*[—–]\s*["“”'](.+?)["“”']\s*\(([^)]*\d{4}[^)]*)\)\s*$/;
+
+/** A plan item, as the model writes it. */
+export interface PlanItemDraft {
+  title: string;
+  subtitle: string;
+  reference: string;
+}
+
+/**
+ * Plans name talks in each item's `reference`. A real one is rewritten with
+ * the list's title and conference, so a wrong date is fixed, and gains the
+ * talk's own address (`url`) for a direct link; the items naming talks that are not real are
+ * returned apart. Items whose reference is not a talk (scripture, or empty)
+ * pass through untouched.
+ */
+export function checkPlanTalks<T extends PlanItemDraft>(items: T[]): { items: (T & { url?: string })[]; unreal: CitedTalk[] } {
+  const checked: (T & { url?: string })[] = [];
+  const unreal: CitedTalk[] = [];
+  for (const item of items) {
+    const match = item.reference.trim().match(PLAN_TALK_RE);
+    if (!match) {
+      checked.push(item);
+      continue;
+    }
+    const [, speaker, title, session] = match;
+    const talk = findTalk(speaker, title, session);
+    if (talk) {
+      const realTitle = talk.title.replace(/^[“"]|[”"]$/g, "");
+      checked.push({ ...item, reference: `${speaker.trim()} — "${realTitle}" (${talk.session})`, url: talk.url });
+    } else {
+      unreal.push({ speaker: speaker.trim(), talk: title.trim(), session: session.trim(), point: item.subtitle });
+    }
+  }
+  return { items: checked, unreal };
+}

@@ -17,6 +17,13 @@ export const PlanSchema = z.object({
 
 export type GeneratedPlan = z.infer<typeof PlanSchema>;
 
+/** A plan as the server hands it back: an item naming a real conference talk
+ *  also carries that talk's Gospel Library address, from `lib/talks.ts` —
+ *  never from the model. */
+export type PreparedPlan = Omit<GeneratedPlan, "items"> & {
+  items: (GeneratedPlan["items"][number] & { url?: string })[];
+};
+
 export interface PlanItem {
   id: string;
   position: number;

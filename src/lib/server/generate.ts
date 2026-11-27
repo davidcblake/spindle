@@ -2,8 +2,8 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { StudyDraftSchema, type Study } from "@/lib/study";
-import { checkTalks, talkCorrectionNote, type CitedTalk } from "@/lib/talks";
-import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
+import { checkPlanTalks, checkTalks, talkCorrectionNote, type CitedTalk } from "@/lib/talks";
+import { PlanSchema, type PreparedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
 import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models";
 import { problemsIn, repairedCopy, verseCountNote, type ReferenceProblem } from "@/lib/references";
@@ -27,7 +27,8 @@ import { notify } from "@/lib/server/notify";
  * (`lib/talks.ts`). A real one gets its true conference and its own address;
  * a first try that cites one that is not real is sent up with a note naming
  * it and listing that speaker's real talks; if the second still does, that
- * talk is left out. A talk that does not exist never reaches anyone.
+ * talk is left out. A talk that does not exist never reaches anyone. Plans
+ * get the same check on every item that names a talk.
  */
 
 export type Generated<T> =
@@ -101,11 +102,11 @@ function logProblems(task: Task, model: string, attempt: number, problems: Refer
 }
 
 /** A line in the log whenever a draft cites talks that are not real. */
-function logTalkProblems(model: string, attempt: number, unreal: CitedTalk[]) {
+function logTalkProblems(model: string, attempt: number, unreal: CitedTalk[], task: Task = "study") {
   console.warn(
     JSON.stringify({
       event: "talk_problems",
-      task: "study",
+      task,
       model,
       attempt: attempt + 1,
       talks: unreal.map((t) => `${t.speaker} — "${t.talk}" (${t.session})`),
@@ -236,7 +237,7 @@ export async function generateStudy(
 export async function generatePlan(
   request: string,
   profile: ReaderProfile | null,
-): Promise<Generated<GeneratedPlan>> {
+): Promise<Generated<PreparedPlan>> {
   const anthropic = client();
   const models = tries(routeFor("plan", request));
   let ask = `Create a study plan for this request: ${request}`;
@@ -271,16 +272,22 @@ export async function generatePlan(
       const validated = PlanSchema.safeParse(candidate);
       if (validated.success && validated.data.items.length > 0) {
         const problems = problemsIn(validated.data);
-        if (problems.length > 0) {
-          logProblems("plan", model, attempt, problems);
-          if (attempt === 0) {
-            ask += correctionNote(problems);
-            continue;
-          }
+        const talks = checkPlanTalks(validated.data.items);
+        if (problems.length > 0) logProblems("plan", model, attempt, problems);
+        if (talks.unreal.length > 0) logTalkProblems(model, attempt, talks.unreal, "plan");
+        if (attempt === 0 && (problems.length > 0 || talks.unreal.length > 0)) {
+          if (problems.length > 0) ask += correctionNote(problems);
+          if (talks.unreal.length > 0) ask += talkCorrectionNote(talks.unreal);
+          continue;
         }
-        // The web route caps what it saves at 60 items and these lengths; the
-        // phone saves what it is sent, so the cap moves here.
-        const plan = problems.length > 0 ? repairedCopy(validated.data) : validated.data;
+        if (talks.items.length === 0) {
+          lastError = "That plan couldn't be built from real talks — try a broader topic, or tap again.";
+          continue;
+        }
+        // Real talks only; the web route caps what it saves at 60 items and
+        // these lengths; the phone saves what it is sent, so the cap moves here.
+        const checkedPlan = { ...validated.data, items: talks.items };
+        const plan = problems.length > 0 ? repairedCopy(checkedPlan) : checkedPlan;
         return {
           ok: true,
           value: {
@@ -290,6 +297,7 @@ export async function generatePlan(
               title: item.title.slice(0, 300),
               subtitle: item.subtitle.slice(0, 500),
               reference: item.reference.slice(0, 300),
+              ...(item.url ? { url: item.url } : {}),
             })),
           },
         };
