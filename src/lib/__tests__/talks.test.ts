@@ -95,4 +95,10 @@ describe("checkPlanTalks", () => {
       { speaker: "President Dallin H. Oaks", talk: "The Atonement and Repentance", session: "April 2025", point: "Not real." },
     ]);
   });
+  it("gives a real talk its own address, and nothing else one", () => {
+    const { items: kept } = checkPlanTalks(items);
+    expect(kept[0].url).toBeUndefined();
+    expect(kept[1].url).toContain("/study/general-conference/2020/10/");
+    expect(kept[2].url).toBeUndefined();
+  });
 });

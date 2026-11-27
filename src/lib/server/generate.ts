@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { StudyDraftSchema, type Study } from "@/lib/study";
 import { checkPlanTalks, checkTalks, talkCorrectionNote, type CitedTalk } from "@/lib/talks";
-import { PlanSchema, type GeneratedPlan } from "@/lib/plans";
+import { PlanSchema, type PreparedPlan } from "@/lib/plans";
 import { buildPlanPrompt, buildSystemPrompt, type ReaderProfile } from "@/lib/server/prompt";
 import { effortFor, routeFor, type Route, type Task } from "@/lib/server/models";
 import { problemsIn, repairedCopy, verseCountNote, type ReferenceProblem } from "@/lib/references";
@@ -237,7 +237,7 @@ export async function generateStudy(
 export async function generatePlan(
   request: string,
   profile: ReaderProfile | null,
-): Promise<Generated<GeneratedPlan>> {
+): Promise<Generated<PreparedPlan>> {
   const anthropic = client();
   const models = tries(routeFor("plan", request));
   let ask = `Create a study plan for this request: ${request}`;
@@ -297,6 +297,7 @@ export async function generatePlan(
               title: item.title.slice(0, 300),
               subtitle: item.subtitle.slice(0, 500),
               reference: item.reference.slice(0, 300),
+              ...(item.url ? { url: item.url } : {}),
             })),
           },
         };
