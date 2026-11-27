@@ -32,7 +32,8 @@ export default function SupportPage() {
         <ul>
           <li>
             <strong>Do I need an account?</strong> No. On iPhone there is nothing to sign in to;
-            your journal, thoughts and plans are kept on your phone.
+            your journal, thoughts and plans are kept on your phone and in your own private iCloud,
+            so they are the same on your other iPhone or a new one.
           </li>
           <li>
             <strong>Does it work offline?</strong> Your journal does, always. Preparing a new study
