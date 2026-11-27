@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TALKS, checkTalks, findTalk, normalizedTitle, surname, talkCorrectionNote } from "../talks";
+import { TALKS, checkPlanTalks, checkTalks, findTalk, normalizedTitle, surname, talkCorrectionNote } from "../talks";
 
 const point = "A point about the passage.";
 
@@ -74,5 +74,25 @@ describe("talkCorrectionNote", () => {
     ]);
     expect(note).toContain('"The Atonement and Repentance"');
     expect(note).toContain("Real general conference talks by Dallin H. Oaks");
+  });
+});
+
+describe("checkPlanTalks", () => {
+  const items = [
+    { title: "Alma 32", subtitle: "Faith as a seed.", reference: "Alma 32" },
+    { title: "Let God Prevail", subtitle: "Gathering Israel.", reference: 'President Russell M. Nelson — "Let God Prevail" (October 2018)' },
+    { title: "A phantom", subtitle: "Not real.", reference: "President Dallin H. Oaks — “The Atonement and Repentance” (April 2025)" },
+    { title: "Reflect", subtitle: "Ponder.", reference: "" },
+  ];
+  it("keeps scripture and empty references, corrects real talks, and sets aside the rest", () => {
+    const { items: kept, unreal } = checkPlanTalks(items);
+    expect(kept.map((i) => i.reference)).toEqual([
+      "Alma 32",
+      'President Russell M. Nelson — "Let God Prevail" (October 2020)',
+      "",
+    ]);
+    expect(unreal).toEqual([
+      { speaker: "President Dallin H. Oaks", talk: "The Atonement and Repentance", session: "April 2025", point: "Not real." },
+    ]);
   });
 });

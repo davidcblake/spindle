@@ -11,7 +11,9 @@ conference and address, **facts only, no talk text** — read from the conferenc
 by `scripts/update-talks.mjs`; re-run it after each conference. `lib/talks.ts` checks every
 study's talks against it in `generate.ts`: a real talk gets its true conference and a direct
 link; one that is not real sends the study to the step-up model with that speaker's real
-talks listed, and is dropped if the second try still cites it. Plans are not checked yet.
+talks listed, and is dropped if the second try still cites it. Plans get the same check on
+every item that names a talk (2026-11-27). `.github/workflows/update-talks.yml` rebuilds the
+list on the 15th of May and November and opens a pull request when there are new talks.
 
 **Waiting:** C's talk grounding — which talks *cite* the passage — needs talk text or BYU's
 index, so still on permission (below); and a "report a problem" button. Read this before building anything that touches how studies cite

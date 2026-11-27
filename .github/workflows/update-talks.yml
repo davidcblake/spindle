@@ -1,0 +1,63 @@
+name: Update the list of conference talks
+
+# Rebuilds src/lib/talks.json (every general conference talk in Gospel Library,
+# facts only) a few weeks after each April and October conference, once its
+# talks are all published, and opens a pull request when there are new ones.
+# Studies and plans only accept talks on this list (src/lib/talks.ts), so a
+# conference's talks are not recognised until this merges.
+#
+# Also runs from the Actions tab: "Update the list of conference talks" → Run.
+on:
+  schedule:
+    # The 15th of May and of November, 14:17 UTC.
+    - cron: "17 14 15 5,11 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-talks
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
+
+      - name: Rebuild the list
+        run: node scripts/update-talks.mjs
+
+      - name: Open a pull request if there are new talks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/lib/talks.json; then
+            echo "No new talks."
+            exit 0
+          fi
+          before=$(git show HEAD:src/lib/talks.json | wc -l)
+          after=$(wc -l < src/lib/talks.json)
+
+          # The list's own tests (every address well-formed, facts only)
+          # must pass before anyone is asked to merge it.
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm test
+
+          branch="talks/$(date -u +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add src/lib/talks.json
+          git commit -m "Add the latest conference talks to the list"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "Add the latest conference talks to the list" \
+            --body "The list of real general conference talks went from $before to $after talks. Rebuilt by \`scripts/update-talks.mjs\` from Gospel Library's conference index pages (facts only: speaker, title, conference, address). Merge to let studies and plans cite the new talks."
